@@ -24,7 +24,7 @@ Human organoids recapitulate the cell type diversity and function of their prima
 # Computational Framework
 To facilitate the data integration and minimize the batch effects, we have built a unified pipeline to conduct re-alignment, quality control, and standard analysis of all human organoids (n = 1,159,206 cells) and fetal scRNA-seq datasets (n =223,334 cells, Supplementary Figure S1 and Table S1). To distinguish critical cell types/subpopulations and repurpose potential drugs and interacting targets for the treatment of severe COVID-19, we devise a computational framework to incorporate these organoids and fetal scRNA-seq data and large-scale meta-GWAS summary statistics on three COVID-19 phenotypes (i.e., very severe, hospitalized, and susceptible COVID-19; Figure 1, and Supplementary Table S2 and Figures S2-S3). There are three main sections: (1) integrating GWAS summary statistics with human organoids scRNA-seq datasets to genetically map trait-relevant single-cell landscapes for three COVID-19 outcomes (Figure 1A); (2) combining GWAS summary statistics with eQTL data in the GTEx database to identify putative risk genes and critical pathways associated with COVID-19 severities (Figure 1B); and (3) prioritization of cell type-specific gene-drug interaction pairs for treating severe COVID-19 and related complications at a fine-grained resolution (Figure 1C). 
 
-![Figure 1](C:/Users/MYL/Desktop/images/ "Figure_1.png")
+![Figure 1](C:/Users/MYL/Desktop/images/Figure_1.png "Figure_1.png")
 
 # Scripts
 In this study, we have built a unified pipeline and devised a computational framework, which contains a series of bioinformatic tools to fulfil the integrative genomic analyses. For example:
