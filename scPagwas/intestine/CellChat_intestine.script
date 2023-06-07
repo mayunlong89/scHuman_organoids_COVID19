@@ -1,0 +1,284 @@
+
+
+#@'----------Cell-to-cell communications
+
+#########----------------data_intestine_positive cells--------#############################
+#data_intestine
+
+###注意格式的变换----将factor 转换成 vector
+data_intestine$annotation1 <- as.vector(data_intestine$annotation2)
+table(data_intestine$annotation1)
+
+#data_covid$annotation1  <-  "IFNAR2+Microglia"
+
+data_intestine$annotation1[which(data_intestine$annotation1 == "Tuft" & data_intestine$positive_cells=="positive_cells")] <- "Tuft_positive"
+
+data_intestine$annotation1[which(data_intestine$annotation1 == "Tuft" & data_intestine$positive_cells=="negative_cells")] <- "Tuft_negative"
+
+table(data_intestine$annotation1)
+
+
+
+Idents(data_intestine) <- data_intestine$annotation1
+
+
+
+##cellChat cell-to-cell interactions
+#Load the required libraries
+library(CellChat)
+library(NMF)
+library(circlize)
+library(ComplexHeatmap)
+library(patchwork)
+options(stringsAsFactors = FALSE)
+library(tidyverse)
+library(ggalluvial)
+library(Seurat)
+
+
+data.input <-GetAssayData(data_intestine,assay = "RNA",slot = "data") #提取single cell matrix
+identity <- subset(data_intestine@meta.data,select="annotation1")  #细胞类型注释
+unique(identity)
+
+#Seurat Reference website
+#https://satijalab.org/seurat/archive/v3.1/interaction_vignette.html  #如何使用seurat
+#https://www.jianshu.com/p/827143ce66fa  #重要的参考简书
+#https://www.waltermuskovic.com/2021/04/15/seurat-s-addmodulescore-function/ #addModuleScore
+
+#cellChat reference website
+#http://www.cellchat.org/
+#https://github.com/sqjin/CellChat
+#1)Full tutorial for CellChat analysis of a single dataset with detailed explanation of each function
+#https://htmlpreview.github.io/?https://github.com/sqjin/CellChat/blob/master/tutorial/CellChat-vignette.html
+
+
+##创建cellchat对象
+cellchat <- createCellChat(object = data.input)
+cellchat <- addMeta(cellchat, meta = identity, meta.name = "labels")
+cellchat <- setIdent(cellchat, ident.use = "labels") 
+groupSize <- as.numeric(table(cellchat@idents)) # 后面有用
+
+
+##设置参考数据库
+# 选择合适的物种，可选CellChatDB.human, CellChatDB.mouse
+CellChatDB <- CellChatDB.human 
+# 使用"Secreted Signaling"用于细胞通讯分析
+CellChatDB.use <- subsetDB(CellChatDB, search = "Secreted Signaling") 
+# 将数据库传递给cellchat对象
+cellchat@DB <- CellChatDB.use 
+
+##配体-受体分析
+# 提取数据库支持的数据子集
+cellchat <- subsetData(cellchat)
+# 识别过表达基因
+cellchat <- identifyOverExpressedGenes(cellchat)
+# 识别配体-受体对
+cellchat <- identifyOverExpressedInteractions(cellchat)
+# 将配体、受体投射到PPI网络
+cellchat <- projectData(cellchat, PPI.human)
+
+
+
+##推测细胞通讯网络
+cellchat <- computeCommunProb(cellchat)
+cellchat <- computeCommunProbPathway(cellchat)
+cellchat <- aggregateNet(cellchat)
+
+
+
+groupSize <- as.numeric(table(cellchat@idents))
+#par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\04-intestine-HIO-06\\Cellchat_plots")
+
+#单个细胞与其他细胞的网络
+mat <- cellchat@net$weight
+par(mfrow = c(3,4), xpd=TRUE)
+pdf("./edge_weight_network_tuft_positive.pdf")
+for (i in 1:nrow(mat)) {
+  mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
+  mat2[i, ] <- mat[i, ]
+  netVisual_circle(mat2, vertex.weight = groupSize, weight.scale = T, edge.weight.max = max(mat), title.name = rownames(mat)[i])
+}
+dev.off()
+
+# show all the significant interactions (L-R pairs) from some cell groups (defined by 'sources.use') 
+#to other cell groups (defined by 'targets.use')
+
+#netVisual_bubble(cellchat, sources.use = 4, targets.use = c(5:11), remove.isolate = FALSE)
+#netVisual_chord_gene(cellchat, sources.use = 4, targets.use = c(1:4), lab.cex = 0.5,legend.pos.y = 30)
+#netVisual_bubble(cellchat, sources.use = 4, targets.use = c(1:13), remove.isolate = FALSE)
+
+table(cellchat@idents)
+netVisual_bubble(cellchat, sources.use = 6, targets.use = c(1:5), remove.isolate = FALSE)
+netVisual_bubble(cellchat, sources.use = c(1:5), targets.use =6, remove.isolate = FALSE)
+
+#netVisual_chord_gene(cellchat, sources.use = 6, targets.use = c(1:5,7:13), lab.cex = 0.5,legend.pos.y = 30)
+netVisual_bubble(cellchat, sources.use = 5, targets.use = c(1:4,6), remove.isolate = FALSE)
+netVisual_bubble(cellchat, sources.use = c(1:4,6), targets.use = 5, remove.isolate = FALSE)
+
+
+
+
+
+
+###提取其中的interaction数目
+cellchat@data.signaling 
+cellchat@net
+interaction_counts <- cellchat@net$count
+interaction_genes <- subsetCommunication(cellchat, slot.name = "net",thresh = 0.05)
+write.csv(interaction_counts,"interaction_counts_normal.csv")
+write.csv(interaction_genes,"interaction_genes_normal.csv")
+
+
+##----------------Interaction counts---heatmap----------------------------
+library("pheatmap")
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\02-brain-HCO-12\\CellChat")
+
+data_interaction_counts <- read.table("Heatmap_count.txt",header = T)
+
+mat <-data_interaction_counts[,c(-1)]
+row.names(mat)<-data_interaction_counts[,1]
+
+pheatmap(mat, 
+         clustering_method = "ward.D",
+         cluster_cols = T, 
+         cluster_rows = T, 
+         #gaps_col = c(5,7,10,14,19),
+         fontsize=10,
+         main = "Interactions",
+         color = c(colorRampPalette(c("SteelBlue","white", "firebrick3"))(50)))
+
+##----------------Interaction counts---heatmap-finished----------------------------
+
+
+
+#Visualization of cell-cell communication at different levels: 
+pathways.show <- c("MIF")
+#pathways.show <- c("ANNEXIN")
+
+# Compute the network centrality scores
+cellchat <- netAnalysis_computeCentrality(cellchat, slot.name = "netP") # the slot 'netP' means the inferred intercellular communication network of signaling pathways
+# Visualize the computed centrality scores using heatmap, allowing ready identification of major signaling roles of cell groups
+# 分析细胞在信号网络中角色
+netAnalysis_signalingRole_network(cellchat, signaling = pathways.show, width = 8, height = 2.5, font.size = 10)
+# Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+gg1 <- netAnalysis_signalingRole_scatter(cellchat)
+gg1
+ht1 <- netAnalysis_signalingRole_heatmap(cellchat, pattern = "outgoing")
+ht2 <- netAnalysis_signalingRole_heatmap(cellchat, pattern = "incoming")
+ht1 + ht2
+
+#Visualization of cell-cell communication at different levels: 
+pathways.show <- c("MIF")
+pathways.show <- c("ANNEXIN")
+
+netAnalysis_contribution(cellchat, signaling = pathways.show)
+# Chord diagram
+#par(mfrow=c(1,1))
+netVisual_aggregate(cellchat, signaling = pathways.show, layout = "chord")
+#> Note: The first link end is drawn out of sector 'Inflam. FIB'.
+
+
+plotGeneExpression(cellchat, signaling = "MIF")
+plotGeneExpression(cellchat, signaling = "ANNEXIN")
+
+
+
+#细胞通讯网络系统分析及可视化
+levels(cellchat@idents)            #查看细胞顺序
+vertex.receiver = c(1,2,3, 4,5,6,7,8,9)          #指定靶细胞的索引
+cellchat@netP$pathways             #查看富集到的信号通路
+pathways.show <- "MIF"             #指定需要展示的通路
+# Hierarchy plot
+png(filename = "./sig_pathway_hierarchy.png", width = 1000, height = 650)
+netVisual_aggregate(cellchat, signaling = pathways.show,  vertex.receiver = vertex.receiver, vertex.size = groupSize)
+dev.off()
+# Circle plot
+png(filename = "./sig_pathway_cricle.png", width = 650, height = 600)
+netVisual_aggregate(cellchat, signaling = pathways.show, layout = "circle", vertex.size = groupSize)
+dev.off()
+# 计算配体-受体对信号网络的贡献度
+png(filename = "./sig_pathway_L-R.png", width = 800, height = 600)
+netAnalysis_contribution(cellchat, signaling = pathways.show)
+dev.off()
+
+# 分析细胞在信号网络中角色
+#cellchat <- netAnalysis_signalingRole(cellchat, slot.name = "netP")
+#png(filename = "sig_pathway_role.png", width = 800, height = 600)
+#netVisual_signalingRole(cellchat, signaling = pathways.show)
+#dev.off()
+cellchat <- netAnalysis_computeCentrality(cellchat, slot.name = "netP")
+png(filename = "./sig_pathway_role.png", width = 800, height = 600)
+netAnalysis_signalingRole_network(cellchat, signaling = pathways.show, width = 8, height = 2.5, font.size = 10)
+dev.off()
+
+
+##细胞通讯模式和信号网络
+nPatterns = 5   #默认为5
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatterns)
+# river plot
+p = netAnalysis_river(cellchat, pattern = "outgoing")
+ggsave("./com_pattern_outgoing_river.png", p, width = 6, height =3)
+# dot plot
+p = netAnalysis_dot(cellchat, pattern = "outgoing")
+ggsave("./com_pattern_outgoing_dot.png", p, width = 4, height = 3)
+
+
+#Cophenetic values begin to drop when the number of incoming patterns is 4.
+#Select patterns for following analysis
+selectK(cellchat, pattern = "incoming")
+
+nPatterns = 5
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "incoming", k = nPatterns)
+# river plot
+p = netAnalysis_river(cellchat, pattern = "incoming")
+ggsave("./com_pattern_incoming_river.png", p, width = 6, height = 3)
+# dot plot
+p = netAnalysis_dot(cellchat, pattern = "incoming")
+ggsave("./com_pattern_incoming_dot.png", p, width = 4, height =3)
+
+
+###Functional group the signaling pathways by similarity
+cellchat <- computeNetSimilarity(cellchat, type = "functional")
+cellchat <- netEmbedding(cellchat, type = "functional")
+#> Manifold learning of the signaling networks for a single dataset
+cellchat <- netClustering(cellchat, type = "functional")
+#> Classification learning of the signaling networks for a single dataset
+# Visualization in 2D-space
+netVisual_embedding(cellchat, type = "functional", label.size = 3.5)
+
+
+
+
+
+#安装UMAP
+#reticulate::py_install(packages = 'umap-learn')  #安装UMAP
+
+##信号网络聚类
+# 按功能相似性聚类
+cellchat <- computeNetSimilarity(cellchat, type = "functional")
+cellchat <- netEmbedding(cellchat, type = "functional")
+cellchat <- netClustering(cellchat, type = "functional")
+# Visualization in 2D-space
+p = netVisual_embedding(cellchat, type = "functional")
+ggsave("custer_pathway_function.png", p, width = 9, height = 6)
+p = netVisual_embeddingZoomIn(cellchat, type = "functional")
+ggsave("custer_pathway_function2.png", p, width = 8, height = 6)
+
+# 按结构相似性聚类
+cellchat <- computeNetSimilarity(cellchat, type = "structural")
+cellchat <- netEmbedding(cellchat, type = "structural")
+cellchat <- netClustering(cellchat, type = "structural")
+# Visualization in 2D-space
+p = netVisual_embedding(cellchat, type = "structural")
+ggsave("custer_pathway_structure.png", p, width = 9, height = 6)
+p = netVisual_embeddingZoomIn(cellchat, type = "structural")
+ggsave("custer_pathway_structure2.png", p, width = 8, height = 6)
+
+
+
