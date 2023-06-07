@@ -1,15 +1,14 @@
 # MAGMA
 
-We used the MAGMA tool to perform gene-based association analyses for three COVID-19 outcomes. 
+# We used the MAGMA tool to perform gene-based association analyses for three COVID-19 outcomes. 
 # Three datasets:
-1) Susceptible COVID-19: /share2/pub/zhouyj/zhouyj/GWAS/COVID_19/SusceptibleCOVID19_v7/hg38/COVID19_HGI_C2_ALL_leave_23andme_20220403_Pagwas.tsv
-2) Hospitalized COVID-19: /share2/pub/zhouyj/zhouyj/GWAS/COVID_19/HospitalizedCOVID19_v7/hg38/COVID19_HGI_B2_ALL_leave_23andme_20220403_Pagwas.tsv
-3) Very severe COVID-19: /share2/pub/zhouyj/zhouyj/GWAS/COVID_19/verysevereCOVID19_v7/COVID19_HGI_A2_ALL_leave_23andme_Pagwas.tsv
-
+#1) Susceptible COVID-19: /share2/pub/zhouyj/zhouyj/GWAS/COVID_19/SusceptibleCOVID19_v7/hg38/COVID19_HGI_C2_ALL_leave_23andme_20220403_Pagwas.tsv
+#2) Hospitalized COVID-19: /share2/pub/zhouyj/zhouyj/GWAS/COVID_19/HospitalizedCOVID19_v7/hg38/COVID19_HGI_B2_ALL_leave_23andme_20220403_Pagwas.tsv
+#3) Very severe COVID-19: /share2/pub/zhouyj/zhouyj/GWAS/COVID_19/verysevereCOVID19_v7/COVID19_HGI_A2_ALL_leave_23andme_Pagwas.tsv
 
 #@ Codes for MAGMA
 
-```
+
 #!/usr/bin/env bash
 
 #MAGMA analysis: GWAS on severe COVID-19 downloaed from COVID-19 Initiative Consortium 
@@ -46,4 +45,4 @@ $MAGMA_DIR/magma \
     N=969689 \
     --gene-annot $OUTPUT/COVID19_HGI_B2_ALL_for_MAGMA.hg19_SNP_Gene_annotation.genes.annot \
     --out $OUTPUT/COVID19_HGI_B2_ALL_for_MAGMA.hg19_SNP_Gene_Analysis_P 
-```
+
