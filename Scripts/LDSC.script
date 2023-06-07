@@ -1,1 +1,128 @@
 
+library(ggplot2)
+library(tidyr)# 使用的gather & spread
+library(reshape2) # 使用的函数 melt & dcast  
+library(pheatmap)
+library(cowplot)
+library(dplyr)
+mild <- read.csv("D:/03-LDSC/胶质瘤/covid_mild.csv",sep="")
+middle <- read.csv("D:/03-LDSC/胶质瘤/covid_middle.csv",sep="")
+severe <- read.csv("D:/03-LDSC/胶质瘤/covid_severe.csv",sep="")
+
+#rg
+pic_mild <- mild[,c(1,2,3)]
+pic_middle <- middle[,c(1,2,3)]
+pic_severe <- severe[,c(1,2,3)]
+
+#RG
+sum <- rbind(pic_mild,pic_middle,pic_severe)
+sum_wide<-spread(sum,key="p2",value="rg")
+rownames(sum_wide) <- c("covid_mild","covid_moderate","covid_severe")
+sum_wide <- sum_wide[,-1]
+temp <- sum_wide[,c("SCZ","MDD","ADHD","BIB","ASD",
+                    "AN","AD","PD","Juvenile_EP","Focal_EP","Generalized_EP",
+                    "EP","IS","Migraine","Multiple_sclerosis","insomnia",
+                    "AgeOfSmokingInitiation","smokingCessation","CognitivePerformance",
+                    "Neuroticism","OpennessToExperence","Conscientiousness",
+                    "SubjectWellBeing","Extraversion","CPD","Happiness",
+                    "Napping","Snoring","LDL","HDL","TG","BodyFatPercentage",
+                    "CKD","TC","WC","SLE","IBD","RA","PBC","CoeliacDisease","Psoriasis",
+                    "UlcerativeColitis","T2D","CAD","DBP_Hispanic","DBP_European",
+                    "DBP_EastAsian","HBP","PR_EastAsian","SBP","Hypertension",
+                    "adultAsthma","Tuberculosis","Esophageal")]
+
+#P value
+pic_mild_p <- mild[,c(1,2,6)]
+pic_middle_p <- middle[,c(1,2,6)]
+pic_severe_p <- severe[,c(1,2,6)]
+
+#p
+sum_p <- rbind(pic_mild_p,pic_middle_p,pic_severe_p)
+sum_wide_p<-spread(sum_p,key="p2",value="p")
+rownames(sum_wide_p) <- c("covid_mild","covid_moderate","covid_severe")
+sum_wide_p <- sum_wide_p[,-1]
+
+temp_p <- sum_wide_p[,c("SCZ","MDD","ADHD","BIB","ASD",
+                    "AN","AD","PD","Juvenile_EP","Focal_EP","Generalized_EP",
+                    "EP","IS","Migraine","Multiple_sclerosis","insomnia",
+                    "AgeOfSmokingInitiation","smokingCessation","CognitivePerformance",
+                    "Neuroticism","OpennessToExperence","Conscientiousness",
+                    "SubjectWellBeing","Extraversion","CPD","Happiness",
+                    "Napping","Snoring","LDL","HDL","TG","BodyFatPercentage",
+                    "CKD","TC","WC","SLE","IBD","RA","PBC","CoeliacDisease","Psoriasis",
+                    "UlcerativeColitis","T2D","CAD","DBP_Hispanic","DBP_European",
+                    "DBP_EastAsian","HBP","PR_EastAsian","SBP","Hypertension",
+                    "adultAsthma","Tuberculosis","Esophageal")]
+
+name <- c("SCZ","MDD","ADHD","BIB","ASD",
+          "AN","AD","PD","Juvenile_EP","Focal_EP","Generalized_EP",
+          "EP","IS","Migraine","Multiple_sclerosis","insomnia",
+          "AgeOfSmokingInitiation","smokingCessation","CognitivePerformance",
+          "Neuroticism","OpennessToExperence","Conscientiousness",
+          "SubjectWellBeing","Extraversion","CPD","Happiness",
+          "Napping","Snoring","LDL","HDL","TG","BodyFatPercentage",
+          "CKD","TC","WC","SLE","IBD","RA","PBC","CoeliacDisease","Psoriasis",
+          "UlcerativeColitis","T2D","CAD","DBP_Hispanic","DBP_European",
+          "DBP_EastAsian","HBP","PR_EastAsian","SBP","Hypertension",
+          "adultAsthma","Tuberculosis","Esophageal"
+          )
+
+
+group=c(rep("Neuropsychiatric",6),rep("Neurodegenerative",10),
+        rep("Behavior-cognitive",12),rep("Metabolic",7),rep("Immunological",7),
+        rep("Cardiovascular",9),rep("Respiratory",1),rep("Infectious",1),rep("cancer",1))
+group <- as.data.frame(group)
+rownames(group) <- name
+
+# mycoldown<-colorRampPalette(c("white","white"))
+# mycolup<-colorRampPalette(c("#FF9966","red"))
+# mycol<-c(mycoldown,mycolup)
+
+ann_colors = list(
+  State= c(Normal = "#33FF00", Mild = "#66FF99", Moderate = "#FFCC00", Severe = "#CC3300"),
+  Scdata = c(Normal = "#33FF00",Asthma = "#CC9966",Hypertension = "#9999CC",Non_Comorbidity = "#CC6666",Comorbidity = "#990066")
+)
+
+p1<-pheatmap(temp,
+         color = colorRampPalette(colors = c("#003366","white","#990033"))(100),
+         # color = mycol,
+         border="black",
+         annotation_col = group,
+         cellwidth = 22, 
+         cellheight = 22,
+         # annotation_colors = ann_colors,
+         # legend_breaks=c(1,10,20,30),
+         # legend_labels=c("1","10","20","30"),
+         show_colnames = TRUE,
+         gaps_col = c(6,16,28,35,42,51,52,53), 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE,
+         display_numbers = matrix(ifelse(temp_p<0.05,ifelse(temp_p<0.005, ifelse(temp_p<0.0005,'***','**'),'*'), ''), nrow(temp_p))
+)
+
+pdf('D:/03-LDSC/胶质瘤/sum_rg.pdf',width = 21,height = 4)
+print(p1)
+dev.off()
+
+#p value
+p1<-pheatmap(temp_p,
+             color = colorRampPalette(colors = c("white"))(100),
+             # color = mycol,
+             border="black",
+             annotation_col = group,
+             cellwidth = 22, 
+             cellheight = 22,
+             # annotation_colors = ann_colors,
+             # legend_breaks=c(1,10,20,30),
+             # legend_labels=c("1","10","20","30"),
+             show_colnames = TRUE,
+             gaps_col = c(6,16,28,35,42,51,52,53), 
+             cluster_rows = FALSE, 
+             cluster_cols = FALSE,
+             display_numbers = matrix(ifelse(temp_p<0.05,ifelse(temp_p<0.005, ifelse(temp_p<0.0005,'***','**'),'*'), ''), nrow(temp_p))
+)
+pdf('D:/03-LDSC/胶质瘤/sum_p.pdf',width = 21,height = 4)
+print(p1)
+dev.off()
+
+
