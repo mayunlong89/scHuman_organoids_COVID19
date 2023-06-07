@@ -1,0 +1,321 @@
+#@ 2022-12-29
+#' @title Single Cell Drug Hunter
+#' @description Calculate single cell Drug Gene Score(scDGS) for candidate genes' drug-gene pairs based on DGIdb 2021.5 database
+#' @details Input a Seurat format single-cell expression matrix, cell type annotation column names, candidate gene list, correlation lists of genes and phenotypes, significance pvalue for genes
+#' @param seurat_obj A Seurat format single-cell expression matrix with 'Cell_type' colname in meta.data
+#' @param gene_cor Correlation lists of genes and phenotypes with colnames 'gene' and 'cor'
+#' @param gene_pvalue P-value lists of genes and phenotypes with colnames 'gene' and 'pvalue'
+#' @param candidate Candidate gene list
+#' @return A list with scDGS and the rank of specificity score, correlation, drug-gene interaction and pvalue for candidate drug-gene pairs
+#' @export
+#'
+#' @import dplyr
+#' @import tidyverse
+#' @author Yijun Zhou
+
+scDGS <- function(seurat_obj, gene_cor, gene_pvalue,candidate){
+  
+  #############################
+  ###1.Load DGIdb database
+  ############################
+  DGIdb_interaction <- readr::read_tsv(system.file('extdata','DGIdb_interactions.tsv',package = 'scDrugHunter'))
+  gene_drug_pairs <- filter(DGIdb_interaction, !is.na(interaction_group_score)) %>% select(gene_name,drug_name,interaction_group_score)
+  colnames(gene_drug_pairs) <- c('gene','drug_name','interaction_group_score')
+  
+  #############################
+  ###2.Calcualate candidate genes specificity.
+  ############################
+  candidate_cor <- subset(gene_cor, gene %in% candidate)
+  cts <- Candidate_genes_specificity(exp = seurat_obj,candidate = candidate_cor)
+  gc()
+  
+  #############################
+  ###3.Link candaidate gene and DGIdb database.
+  ############################
+  pairs <- inner_join(cts,gene_drug_pairs,by = c('gene'))
+  pairs$pvalue <- gene_pvalue$pvalue[match(pairs$gene,gene_pvalue$gene)]
+  
+  #############################
+  ###4.Calcualate drug-gene interaction rank, genes-trait significance rank and scDGS.
+  ############################
+  pairs <- pairs %>% group_by(Cell_type) %>%
+    mutate(pair_name = paste(gene,drug_name,sep = '_')) %>%
+    distinct() %>%
+    mutate(interaction_rank=rank(interaction_group_score)*10/length(interaction_group_score)) %>%
+    mutate(pvalue_rank=rank(desc(pvalue))*10/length(pvalue)) %>%
+    mutate(scDGS = 0.5*(specificity_rank*pvalue_rank+specificity_rank*interaction_rank+correlation_rank*interaction_rank+correlation_rank*pvalue_rank)) %>%
+    select(gene, drug_name, pair_name, specificity_rank, correlation_rank, interaction_rank, pvalue_rank,scDGS) %>%
+    ungroup()
+  pairs <- pairs[order(-pairs$scDGS),]
+  
+  return(pairs)
+  
+}
+
+
+
+source("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\06_scDrugHunter\\Candidate_genes_specificity.R")
+source("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\06_scDrugHunter\\scDH_circlize_plot.R")
+source("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\06_scDrugHunter\\scDH_radar_plot.R")
+ 
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB")
+
+
+
+##Analyzing organoids specific drugs
+#----------------------------------------------------------------------------------------
+library(ggplot2)
+library(Seurat)
+library(dplyr)
+library(tidyverse)
+library(circlize)
+library(ggradar) 
+
+#devtools::install_github("ricardo-bion/ggradar", dependencies = TRUE)
+
+
+##Analyzing Lung organoids specific drugs
+#----------------------------------------------------------------------------------------
+
+data_lung <- c()
+data_lung <- readRDS("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\03-lung-HLO-3/severe/HLO-3.rds")
+
+##基因名---注释
+row.names(data_lung@assays$RNA@counts) <- data_lung@assays[["RNA"]]@meta.features[["gene_symbols"]]
+row.names(data_lung@assays$RNA@data)   <- data_lung@assays[["RNA"]]@meta.features[["gene_symbols"]]
+
+
+covid19_risk_genes <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\02-SMultiXcan-analysis\\all_438_genes_for_scDrugHunter.txt",header=T)
+candidate_genes <- covid19_risk_genes$gene
+
+gene_cor <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\03-lung-HLO-3\\severe_genes_cor_for_scDrugHunter.txt",header=T)
+
+data_lung$Cell_type <- data_lung$annotation1
+
+#data_pairs_lung<-scDGS1(data_lung,gene_cor,covid19_risk_genes$pvalue,candidate_genes,"Cell_type")
+data_pairs_lung<-scDGS(data_lung,gene_cor,covid19_risk_genes,candidate_genes)
+
+
+write.csv(data_pairs_lung,file="scDrugHunter_Lung.csv")
+
+
+#colnames(data_pairs_lung)[1] <- 'Cell_type'
+
+scDH_circlize_plot(data_pairs_lung,"Mesenchymal Cell",10,5)
+
+scDH_circlize_plot(data_pairs_lung,"Mesenchymal Cell",5,3)
+scDH_circlize_plot(data_pairs_lung,"Epithelial Cell",20,5)
+ 
+
+scDH_radar_plot(data_pairs_lung,"Mesenchymal Cell",19,unique_g = TRUE)
+scDH_radar_plot(data_pairs_lung,"Endothelial Cell",20,unique_g = TRUE)
+scDH_radar_plot(data_pairs_lung,"Epithelial Cell",20,unique_g = TRUE)
+
+scDH_radar_plot(data_pairs_lung,"Mesenchymal Cell",50,unique_g = TRUE)
+
+
+#install.packages("ks")
+library("Nebulosa")
+library("Seurat")
+library("BiocFileCache")
+library(paletteer)
+
+data_lung_mesen <-readRDS("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\03-lung-HLO-3\\severe\\HLO_3_MSC.rds")
+  
+#NAPSA
+plot_density(object =data_lung_mesen, "CCR1",reduction = "umap") 
+plot_density(object =data_lung_mesen, "TNFRSF4",reduction = "umap") 
+plot_density(object =data_lung_mesen, "PDE4A",reduction = "umap") 
+plot_density(object =data_lung_mesen, "IFNAR2",reduction = "umap") 
+plot_density(object =data_lung_mesen, "VIPR2",reduction = "umap") 
+plot_density(object =data_lung_mesen, "P4HA2",reduction = "umap") 
+plot_density(object =data_lung_mesen, "SLC5A3",reduction = "umap") 
+plot_density(object =data_lung_mesen, "SENP7",reduction = "umap") 
+plot_density(object =data_lung_mesen, "LTA",reduction = "umap") 
+plot_density(object =data_lung_mesen, "TYK2",reduction = "umap") 
+plot_density(object =data_lung_mesen, "COL11A2",reduction = "umap") 
+plot_density(object =data_lung_mesen, "HCN3",reduction = "umap") 
+plot_density(object =data_lung_mesen, "PLEKHA4",reduction = "umap") 
+plot_density(object =data_lung_mesen, "CLK2",reduction = "umap") 
+plot_density(object =data_lung_mesen, "CA11",reduction = "umap") 
+plot_density(object =data_lung_mesen, "IMPG2",reduction = "umap") 
+plot_density(object =data_lung_mesen, "SLC22A4",reduction = "umap") 
+plot_density(object =data_lung_mesen, "PTGFR",reduction = "umap") 
+plot_density(object =data_lung_mesen, "SACM1L",reduction = "umap") 
+ 
+
+
+library(paletteer)
+
+#MAPT
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_lung_mesen, "MAPT",reduction = "umap") 
+Idents(data_lung_mesen) <- data_lung_mesen$positive_cells
+VlnPlot(object =data_lung_mesen, features="MAPT",log =T,cols = c("#C0C0C0","#dc3023") )
+
+ 
+#TYK2
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_lung_mesen, "TYK2T",reduction = "umap") 
+Idents(data_lung_mesen) <- data_lung_mesen$positive_cells
+VlnPlot(object =data_lung_mesen, features="TYK2",log =T,cols = c("#C0C0C0","#dc3023") )
+
+
+#VEGFA
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_lung_mesen, "VEGFA",reduction = "umap") 
+Idents(data_lung_mesen) <- data_lung_mesen$positive_cells
+VlnPlot(object =data_lung_mesen, features="VEGFA",log =T,cols = c("#C0C0C0","#dc3023") )
+
+
+
+
+##Analyzing Brain organoids specific drugs
+#----------------------------------------------------------------------------------------
+
+#@ file.edit('~/.Rprofile')
+#@ .libPaths(c(“你要更改的新目录”,“Step1中显示的默认旧目录”))
+
+#load("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\06_scDrugHunter\\scDrugHunter\\inst\\extdata/seurat_test.rda")
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis")
+data_covid <- readRDS("HCO-12.rds")
+
+##基因名---注释
+row.names(data_covid@assays$RNA@counts) <-data_covid@assays[["RNA"]]@meta.features[["gene_symbols"]]
+row.names(data_covid@assays$RNA@data) <-data_covid@assays[["RNA"]]@meta.features[["gene_symbols"]]
+
+data_covid$Cell_type <- data_covid$annotation2
+
+covid19_risk_genes <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\02-SMultiXcan-analysis\\all_438_genes_for_scDrugHunter.txt",header=T)
+candidate_genes <- covid19_risk_genes$gene
+
+gene_cor <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\02-brain-HCO-12\\severe\\severe_brain_gene_cor_for_scDrugHunter.txt",header=T)
+
+
+#data_pairs_brain <- scDGS(data_covid,gene_cor,covid19_risk_genes,candidate_genes,"Cell_type")
+data_pairs_brain<-scDGS(data_covid,gene_cor,covid19_risk_genes,candidate_genes)
+
+write.csv(data_pairs_brain,file="scDrugHunter_brain.csv")
+
+
+
+#colnames(data_pairs)[1] <- 'Cell_type'
+
+scDH_circlize_plot(data_pairs_brain,"Endothelial Cell",10,5)
+
+scDH_circlize_plot(data_pairs_brain,"Microglia",20,5)
+
+scDH_circlize_plot(data_pairs_brain,"Excitatory Neuron",20,5)
+scDH_circlize_plot(data_pairs_brain,"IPC",20,5)
+scDH_circlize_plot(data_pairs_brain,"Inhibitory Neuron",20,5)
+scDH_circlize_plot(data_pairs_brain,"Astrocytic",20,5)
+
+
+scDH_radar_plot(data_pairs_brain,"Endothelial Cell",20,unique_g = TRUE)
+scDH_radar_plot(data_pairs_brain,"Endothelial Cell",10)
+scDH_radar_plot(data_pairs_brain,"Endothelial Cell",30)
+
+
+#install.packages("ks")
+library("Nebulosa")
+library("Seurat")
+library("BiocFileCache")
+library(paletteer)
+
+
+data_covid_Endo <- readRDS("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\02-brain-HCO-12\\data_covid_Endo.rds")
+
+#NAPSA
+plot_density(object =data_covid_Endo, "PLEKHA4",reduction = "umap") 
+plot_density(object =data_covid_Endo, "LTF",reduction = "umap") 
+plot_density(object =data_covid_Endo, "ICAM1",reduction = "umap") 
+plot_density(object =data_covid_Endo, "P4HA2",reduction = "umap") 
+plot_density(object =data_covid_Endo, "PDE4A",reduction = "umap") 
+plot_density(object =data_covid_Endo, "IL10RB",reduction = "umap") 
+plot_density(object =data_covid_Endo, "CYP3A43",reduction = "umap") 
+plot_density(object =data_covid_Endo, "CSF3",reduction = "umap") 
+plot_density(object =data_covid_Endo, "CCR9",reduction = "umap") 
+plot_density(object =data_covid_Endo, "IFNAR2",reduction = "umap") 
+plot_density(object =data_covid_Endo, "JAK1",reduction = "umap") 
+plot_density(object =data_covid_Endo, "VIPR2",reduction = "umap") 
+plot_density(object =data_covid_Endo, "PSORS1C1",reduction = "umap") 
+plot_density(object =data_covid_Endo, "LTA",reduction = "umap") 
+plot_density(object =data_covid_Endo, "TYK2",reduction = "umap") 
+plot_density(object =data_covid_Endo, "CPOX",reduction = "umap") 
+plot_density(object =data_covid_Endo, "PTGFR",reduction = "umap") 
+plot_density(object =data_covid_Endo, "SPARC",reduction = "umap") 
+
+
+
+
+
+
+
+##Analyzing intestine organoids specific drugs
+#----------------------------------------------------------------------------------------
+gene_cor_intestine <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\04-intestine-HIO-06\\drived_data\\severe_intestine_genes_for_scDrugHunter.txt",header=T)
+
+ 
+data_intestine <- readRDS("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\04-intestine-HIO-06/drived_data/HIO-6.rds")
+##基因名---注释
+row.names(data_intestine@assays$RNA@counts) <- data_intestine@assays[["RNA"]]@meta.features[["gene_symbols"]]
+row.names(data_intestine@assays$RNA@data)   <- data_intestine@assays[["RNA"]]@meta.features[["gene_symbols"]]
+
+data_intestine$Cell_type <- data_intestine$annotation2
+
+
+covid19_risk_genes <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\02-SMultiXcan-analysis\\all_438_genes_for_scDrugHunter.txt",header=T)
+candidate_genes <- covid19_risk_genes$gene
+
+
+#data_pairs<-scDGS(data_intestine,gene_cor_intestine, covid19_risk_genes,candidate_genes,"Cell_type")
+data_pairs<-scDGS(data_intestine,gene_cor_intestine, covid19_risk_genes,candidate_genes)
+
+#colnames(data_pairs)[1] <- 'Cell_type'
+
+scDH_circlize_plot(data_pairs,"Tuft",10,5)
+scDH_circlize_plot(data_pairs,"Stem_cell",10,5)
+scDH_circlize_plot(data_pairs,"SI_enterocyte",10,5)
+scDH_circlize_plot(data_pairs,"M_cell",10,5)
+scDH_circlize_plot(data_pairs,"Enteroendocrine",10,5)
+
+scDH_radar_plot(data_pairs,"Tuft",20,unique_g = TRUE)
+scDH_radar_plot(data_pairs,"Tuft",10)
+scDH_radar_plot(data_pairs,"Tuft",30)
+
+
+write.csv(data_pairs,file="scDrugHunter_Intestine.csv")
+
+
+
+
+#install.packages("ks")
+library("Nebulosa")
+library("Seurat")
+library("BiocFileCache")
+library(paletteer)
+
+data_intestine_Tuft <- readRDS("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\04-intestine-HIO-06\\data_intestine_Tuft.rds")
+
+#NAPSA
+plot_density(object =data_intestine_Tuft, "IL10RB",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "ICAM1",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "CCR1",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "PDE4A",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "TNFRSF4",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "TYK2",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "SENP7",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "P4HA2",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "DBP",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "CLK3",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "BGLAP",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "PLEKHA4",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "IFNAR2",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "VIPR2",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "JAK1",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "THRA",reduction = "umap") 
+plot_density(object =data_intestine_Tuft, "PTGFR",reduction = "umap") 
+
+
+
