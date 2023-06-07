@@ -1,0 +1,667 @@
+#2022-08-16
+options(repos=structure(c(CRAN="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")))
+options(download.file.method = "libcurl")
+
+
+library(ggplot2)
+library(Seurat)
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis")
+data_covid <- readRDS("HCO-12.rds")
+
+##基因名---注释
+row.names(data_covid@assays$RNA@counts) <-data_covid@assays[["RNA"]]@meta.features[["gene_symbols"]]
+row.names(data_covid@assays$RNA@data) <-data_covid@assays[["RNA"]]@meta.features[["gene_symbols"]]
+
+ls()
+
+table(data_covid$annotation2)
+
+Idents(data_covid)<-data_covid$annotation2
+DimPlot(data_covid, reduction = "umap",label = TRUE)
+
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(1,2,4,5,7,6,9,10)]
+DimPlot(data_covid, label = T,  cols= pal, pt.size = 1.5, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+DimPlot(data_covid, reduction = "umap",label = T,  cols= pal, pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+##scPagwas_cell TRS/P vaule/gPAS score
+cell_annotation <- read.csv("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\02-brain-HCO-12\\severe\\HCO-12_severe_singlecell_scPagwas_score_pvalue.Result.csv")
+
+data_covid$scPagwas.TRS.Score1 <- cell_annotation$scPagwas.TRS.Score1
+data_covid$scPagwas.gPAS.score <- cell_annotation$scPagwas.gPAS.score
+data_covid$CellScalepValue <- cell_annotation$CellScalepValue
+
+library(tidyverse)
+library(RColorBrewer)
+W2<-FeaturePlot(data_covid, reduction = "umap",
+                features = "scPagwas.TRS.Score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "darkred",mid = "white",low = "darkblue",midpoint = 0)
+W2
+
+
+
+###-1----All brain cells ====> positive cells VS negative cells
+data_covid$annotation1 <- as.vector(data_covid$annotation2)
+table(data_covid$annotation2)
+table(data_covid$annotation1)
+
+
+#Cell counts
+len <- length(data_covid$CellScalepValue)
+
+threshold <- 0.05/len
+
+
+#定义阳性细胞的比例
+data_covid$positive_cells <- c(1:len)
+data_covid$positive_cells[which(data_covid$CellScalepValue<threshold | data_covid$CellScalepValue == threshold )]<- "positive_cells"
+data_covid$positive_cells[which(data_covid$CellScalepValue> threshold)]<- "negative_cells"
+table(data_covid$positive_cells)
+
+table(data_covid$annotation1)
+mytable<-table(data_covid$annotation1,data_covid$positive_cells)
+prop.table(mytable,1)
+
+
+##Positive cells vs negative cells differential gene expression analysis
+Idents(data_covid) <- data_covid$positive_cells
+table(Idents(data_covid))
+Idents(data_covid)
+
+# 每个聚类细胞数占比
+mytable<-table(data_covid$annotation2,data_covid$positive_cells)
+prop.table(mytable,1)
+
+
+length(colnames(data_covid)[which(data_covid$positive_cells == 'positive_cells')])
+length(colnames(data_covid)[which(data_covid$positive_cells == 'negative_cells')])
+
+Idents(data_covid)<-data_covid$positive_cells
+DimPlot(data_covid, reduction = "umap",label = F,  cols= c("#DC0000FF","grey"), pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+
+
+
+########------------------scDRS------------score for intestine organoids based on scPagwas-identified top-ranked 1000 genes
+
+scDRS <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_brain.score",head = TRUE)
+
+scDRS$FDR <- p.adjust(scDRS$pval,method = "BH",n=length(scDRS$pval))
+
+colnames(data_covid)
+
+scDRS$CellID
+
+
+library(dplyr)
+subset_2 <- intersect(scDRS$CellID,colnames(data_covid))
+setdiff(colnames(data_covid),subset_2)
+
+
+data_covid$scDRS_norm_score <- scDRS$norm_score[which(scDRS$CellID %in% colnames(data_covid))]
+head(data_covid$scDRS_norm_score)
+data_covid$scDRS_pval <- scDRS$pval[which(scDRS$CellID %in% colnames(data_covid))]
+data_covid$scDRS_nlog10_pval <- scDRS$nlog10_pval[which(scDRS$CellID %in% colnames(data_covid))]
+data_covid$scDRS_FDR <- scDRS$FDR[which(scDRS$CellID %in% colnames(data_covid))]
+
+
+
+
+cor.test(data_covid$scDRS_norm_score,data_covid$scPagwas.TRS.Score1)
+
+plot(data_covid$scPagwas.TRS.Score1,data_covid$scDRS_norm_score,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_covid$scDRS_norm_score~data_covid$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+W2<-FeaturePlot(data_covid, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+W2<-FeaturePlot(data_covid, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+
+#计算TRS各细胞类型组之间的差别
+#violin plot
+library(ggplot2)
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(1,2,4,5,7,6,9,10)]
+
+TRS <- as.data.frame(data_covid$scPagwas.TRS.Score1)
+Celltype <- as.data.frame(data_covid$annotation2)
+combind_cc<- as.data.frame(cbind(Celltype,TRS))
+
+names(combind_cc)<- c("group","value")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+
+
+
+
+
+#-------------------------Brain--Endothelial Cell---------------------------------------
+Idents(data_covid)<-data_covid$annotation2
+table(Idents(data_covid))
+data_covid_Endo <- subset(data_covid,idents = "Endothelial Cell")
+
+table(data_covid_Endo$positive_cells)
+
+
+
+#####################################################---------------Start-------
+#Re-PCA and UMAP for all severe
+data_covid_Endo = FindVariableFeatures(data_covid_Endo, do.plot = F, display.progress = FALSE)
+data_covid_Endo = ScaleData(data_covid_Endo, display.progress = FALSE)
+data_covid_Endo <- RunPCA(data_covid_Endo, verbose = FALSE)
+ElbowPlot(data_covid_Endo, ndims = 20)
+data_covid_Endo <- FindNeighbors(object = data_covid_Endo, dims = 1:20)
+data_covid_Endo <- FindClusters(object = data_covid_Endo, resolution = 0.05)
+data_covid_Endo <- RunUMAP(object = data_covid_Endo, dims = 1:20)
+data_covid_Endo <- RunTSNE(object = data_covid_Endo, dims = 1:20)
+
+#plot by using UMAP
+Idents(data_covid_Endo)<-data_covid_Endo$RNA_snn_res.0.05
+DimPlot(data_covid_Endo, reduction = "umap")
+
+table(data_covid_Endo$RNA_snn_res.0.05)
+
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+#pal <- paletteer_d("ggsci::nrc_npg")[c(4,9,10,5,6)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(9,2,7,5,6)]
+
+Idents(data_covid_Endo)<-data_covid_Endo$RNA_snn_res.0.05
+DimPlot(data_covid_Endo, reduction = "umap",label = T,  cols= pal, pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+###------UMAP for positive cells
+Idents(data_covid_Endo)<-data_covid_Endo$positive_cells
+DimPlot(data_covid_Endo, reduction = "umap",label = F,  cols= c("#DC0000FF","grey"), pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+table(Idents(data_covid_Endo))
+mytable<-table(data_covid_Endo$RNA_snn_res.0.05,data_covid_Endo$positive_cells)
+prop.table(mytable,1)
+
+
+saveRDS(data_covid_Endo, file = "data_covid_Endo.rds")
+
+data_covid_Endo <- readRDS("data_covid_Endo.rds")
+
+
+##-----calculate significant genes FOR positive cells vs negative cells--------
+
+Idents(data_covid_Endo)<-data_covid_Endo$positive_cells
+###雅茹的代码
+markers_df<-FindMarkers(object =data_covid_Endo,
+                          ident.1 = colnames(data_covid_Endo)[which(data_covid_Endo$positive_cells == 'positive_cells')],
+                          ident.2 = colnames(data_covid_Endo)[which(data_covid_Endo$positive_cells == 'negative_cells')], 
+                          min.pct = 0.1,logfc.threshold=0)
+
+print(x = head(markers_df))
+markers_genes =  rownames(head(x = markers_df, n = 6))
+VlnPlot(object =data_covid_Endo, features =markers_genes,log =T )
+FeaturePlot(object = data_covid_Endo, features=markers_genes )
+
+write.csv(markers_df,"data_covid_brain_Endo_severe_COVID-19_sig.csv")
+
+
+
+##--春玉的FindMarkers 代码
+FindAllMarkers2 <- function(obj){
+  
+  all_markers <- lapply(levels(Idents(obj)), function(x){ # Five expression patterns
+    FindMarkers(obj, ident.1 = x, ident.2 = NULL, test.use = "MAST")
+  })
+  
+  return(value(all_markers))
+}
+
+
+
+###火山图，volcano plot
+
+DEG_genes2<-markers_df
+plot(DEG_genes2$avg_log2FC,-log10(DEG_genes2$p_val_adj),
+     xlim=c(-3, 3), ylim=c(0,300),
+     xlab="Log2 (fold change)", 
+     ylab="-Log10(FDR)")
+r10 <- DEG_genes2[which(DEG_genes2$avg_log2FC >=0.25  & DEG_genes2$p_val_adj<=0.05),] ##利用which函数对“数据某些行”进行提取，即rs7635815和category<0.6
+x <- r10$avg_log2FC
+y <- -log10(r10$p_val_adj)
+points(x,y,pch = 21,cex = 1.25, lwd = 1.3, col = "white", bg =  "#F39B7FFF")
+
+r11 <- DEG_genes2[which(DEG_genes2$avg_log2FC<=-0.25 & DEG_genes2$p_val_adj<=0.05),] ##利用which函数对“数据某些行”进行提取，即rs7635815和category<0.6
+x <- r11$avg_log2FC
+y <- -log10(r11$p_val_adj)
+points(x,y,pch = 21,cex = 1.25, lwd = 1.3, col = "white", bg =  "#91D1C2FF")
+
+#text(x[1:10],y[1:10],labels = row.names(r10)[1:10],cex = 0.8,pos=2)
+#N1<-sum(DEG_genes2$avg_log2FC>0)
+#N1
+#N2<-sum(DEG_genes2$avg_log2FC<=0)
+#N2
+#text(c(-1.0,1.0),c(33,33),labels =c("N=1942","N=2789") ,cex = 0.8)
+abline(v=0.25,col="red",lty="longdash")
+abline(v=-0.25,col="red",lty="longdash")
+abline(h=-log(0.05,10),col="red",lty="longdash")
+ 
+
+
+
+
+########------------------scDRS------------score for brain endothelial cells based on scPagwas-identified top-ranked 1000 genes
+
+scDRS <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_brain.score",head = TRUE)
+
+scDRS$FDR <- p.adjust(scDRS$pval,method = "BH",n=length(scDRS$pval))
+
+colnames(data_covid_Endo)
+
+scDRS$CellID
+
+
+library(dplyr)
+subset_2 <- intersect(scDRS$CellID,colnames(data_covid_Endo))
+setdiff(colnames(data_covid_Endo),subset_2)
+
+
+data_covid_Endo$scDRS_norm_score <- scDRS$norm_score[which(scDRS$CellID %in% colnames(data_covid_Endo))]
+head(data_covid_Endo$scDRS_norm_score)
+data_covid_Endo$scDRS_pval <- scDRS$pval[which(scDRS$CellID %in% colnames(data_covid_Endo))]
+data_covid_Endo$scDRS_nlog10_pval <- scDRS$nlog10_pval[which(scDRS$CellID %in% colnames(data_covid_Endo))]
+data_covid_Endo$scDRS_FDR <- scDRS$FDR[which(scDRS$CellID %in% colnames(data_covid_Endo))]
+
+
+
+
+cor.test(data_covid_Endo$scDRS_norm_score,data_covid_Endo$scPagwas.TRS.Score1)
+
+plot(data_covid_Endo$scPagwas.TRS.Score1,data_covid_Endo$scDRS_norm_score,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_covid_Endo$scDRS_norm_score~data_covid_Endo$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+W2<-FeaturePlot(data_covid_Endo, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+W2<-FeaturePlot(data_covid_Endo, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+
+
+#定义阳性细胞的比例 for scDRS
+threshold = 0.05
+data_covid_Endo$scDRS_positive_cells <- c(1:length(data_covid_Endo$scDRS_norm_score))
+data_covid_Endo$scDRS_positive_cells[which(data_covid_Endo$scDRS_FDR<threshold | data_covid_Endo$scDRS_FDR == threshold )]<- "positive_cells"
+data_covid_Endo$scDRS_positive_cells[which(data_covid_Endo$scDRS_FDR> threshold)]<- "negative_cells"
+table(data_covid_Endo$scDRS_positive_cells)
+
+table(data_covid_Endo$annotation1)
+mytable<-table(data_covid_Endo$positive_cells,data_covid_Endo$scDRS_positive_cells)
+prop.table(mytable,1)
+
+Idents(data_covid_Endo)<- data_covid_Endo$scDRS_positive_cells
+DimPlot(data_covid_Endo, reduction = "umap",label = F,  cols= c("grey","#DC0000FF"), pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+
+#----------------Genetic risk genes expressed in brain endo organoids cells
+
+##---------------(2)----------------------------------##
+#Add_Module_score for druggable genes
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+#FeaturePlot
+#features <- c("CSNK2B")
+#FeaturePlot(liverCells, features = features)
+
+##利用240 druggable genes for severe COVID-19
+#Drug_genes <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\03-lung-HLO-3\\severe\\Druggable_genes\\240_druggable_genes.txt",header = TRUE)
+
+##利用438 risk genes for severe COVID-19
+risk_genes <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\02-SMultiXcan-analysis\\all_438_genes_for_scDrugHunter.txt",header = TRUE)
+risk_438_genes <- risk_genes$gene
+
+
+ 
+
+#RidgePlot(liverCells, features = unique(pbc_risk_genes), ncol = 2)
+#DotPlot(liverCells, features = unique(pbc_risk_genes)) + RotatedAxis()
+#DotPlot(pbmc, features = unique(pbc_risk_genes)) + RotatedAxis()
+
+#?Dotplot()
+#?DiscretePalette()
+
+data_covid_Endo <- AddModuleScore(data_covid_Endo,
+                             features = list(risk_438_genes),
+                             name="risk_438_genes")
+W2<-FeaturePlot(data_covid_Endo, reduction = "umap",
+                features = "risk_438_genes1", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+
+W2<-FeaturePlot(data_covid_Endo, reduction = "umap",
+                features = "risk_438_genes1", label = FALSE, repel = TRUE) +
+scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.05)
+W2
+
+
+cor(data_covid_Endo$risk_438_genes1,data_covid_Endo$scPagwas.TRS.Score1)
+
+
+##---TRS--映射
+W2<-FeaturePlot(data_covid_Endo, reduction = "umap",
+                features = "scPagwas.TRS.Score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.05)
+W2
+
+
+
+
+
+
+
+#计算TRS各细胞类型组之间的差别
+#violin plot
+library(ggplot2)
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(9,2,7,5,6)]
+
+TRS <- as.data.frame(data_covid_Endo$scPagwas.TRS.Score1)
+Celltype <- as.data.frame(data_covid_Endo$RNA_snn_res.0.05)
+combind_cc<- as.data.frame(cbind(Celltype,TRS))
+
+names(combind_cc)<- c("group","value")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+
+
+###---druggable gene scores for cell cluster among endothelial cells
+DGS <- as.data.frame(data_covid_Endo$covid_druggable_genes1)
+Celltype <- as.data.frame(data_covid_Endo$RNA_snn_res.0.05)
+group <-as.data.frame(data_covid_Endo$positive_cells)
+combind_cc<- as.data.frame(cbind(Celltype,DGS,group))
+
+names(combind_cc)<- c("celltype","value","group")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),
+                         y=as.numeric(combind_cc[,2]),
+                         fill=combind_cc[,1]))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+
+
+####positive cells vs. negative cells for druggable gene scores
+
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,3],as.numeric(combind_cc[,2])),
+                         y=as.numeric(combind_cc[,2]),
+                         fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=c("#C0C0C0","#dc3023"))
+
+
+d1 <- combind_cc$value[which(combind_cc$group=="positive_cells")]
+d2 <- combind_cc$value[which(combind_cc$group=="negative_cells")]
+wilcox.test(d1,d2)
+t.test(d1,d2)
+
+mean(d1)
+mean(d2)
+
+
+
+
+
+###-------------------------TRS
+##density plot
+library(ggplot2)
+
+#t value density
+p<-ggplot(all_fortify_can2, aes(x = all_fortify_can2$sc_bt_value))
+p + geom_density(aes(color = all_fortify_can2$anno))
+p + geom_density(aes(fill = all_fortify_can2$anno), alpha=0.4)
+
+
+#scPagwas_score density
+p<-ggplot(all_fortify_can2, aes(x = scpagwas_score))
+p + geom_density(aes(color = all_fortify_can2$anno))
+p + geom_density(aes(fill = all_fortify_can2$anno), alpha=0.4)
+
+#logp density
+p<-ggplot(all_fortify_can2, aes(x = all_fortify_can2$logp))
+p + geom_density(aes(color = all_fortify_can2$anno))
+p + geom_density(aes(fill = all_fortify_can2$anno), alpha=0.4)
+
+
+
+
+
+#########################------新的Dotplot图-----#################################
+
+##---dotplot for druggable genes specific to Brain_endo
+
+
+Markers<-c("IL11RA","VEGFA","MCL1","FGFR1","PDGFRB","PTGER1","CCL2",
+           "IFNAR2","PTGER2","PIK3R1","PIK3CA","PDGFRA","BMPR2","HDAC7",
+           "VIM","CHRM2","MAPK10","ITGA4","IL6ST",)
+
+
+DotPlot(data_covid_Endo, features = Markers)+RotatedAxis()+
+  FontSize(x.text = 9.9,y.text = 8.5)+ggplot2:::coord_flip()+
+  scale_color_gradientn(values = seq(0,1,0.2),
+                        colours = c('#330066','#336699','#66CC66','#FFCC33'))
+
+DotPlot(data_covid_Endo, features = Markers)+RotatedAxis()+
+  FontSize(x.text = 9.9,y.text = 8.5) +
+  scale_color_gradientn(values = seq(0,1,0.2),
+                        colours = c('#330066','#336699','#66CC66','#FFCC33'))
+
+
+
+
+####################################################################################
+
+###################################################------Density_plot
+###density_plot_for individual genes
+options(repos=structure(c(CRAN="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")))
+options(download.file.method = "libcurl")
+#if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager") 
+#BiocManager::install("Nebulosa")
+#install.packages("ks")
+library("Nebulosa")
+library("Seurat")
+library("BiocFileCache")
+library(paletteer)
+
+
+#VEGFA
+#FeaturePlot(object = data_covid, features="IFNAR2", label = FALSE, repel = TRUE,reduction = "umap")
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_covid_Endo, "VEGFA",reduction = "umap") 
+FeaturePlot(object = data_covid_Endo, features="VEGFA", cols= pal2, label = FALSE, repel = TRUE,reduction = "umap")
+VlnPlot(object =data_covid_Endo, features="VEGFA",log =T )
+
+
+#IL11RA
+plot_density(object =data_covid_Endo, "IL11RA",reduction = "umap") 
+pal <- paletteer_d("ggsci::nrc_npg")[c(1,2,4,5,7,6,9,10)]
+VlnPlot(object =data_covid_Endo, features="IL11RA",log =T, cols= pal, pt.size = 0.5)
+
+#MCL1
+plot_density(object =data_covid_Endo, "MCL1",reduction = "umap") 
+pal <- paletteer_d("ggsci::nrc_npg")[c(1,2,4,5,7,6,9,10)]
+VlnPlot(object =data_covid_Endo, features="MCL1",log =T, cols= pal, pt.size = 0.5)
+
+
+#FGFR1
+plot_density(object =data_covid_Endo, "FGFR1",reduction = "umap") 
+pal <- paletteer_d("ggsci::nrc_npg")[c(1,2,4,5,7,6,9,10)]
+VlnPlot(object =data_covid_Endo, features="FGFR1",log =T, cols= pal, pt.size = 0.5)
+
+#PDGFRB
+plot_density(object =data_covid_Endo, "PDGFRB",reduction = "umap") 
+pal <- paletteer_d("ggsci::nrc_npg")[c(1,2,4,5,7,6,9,10)]
+VlnPlot(object =data_covid_Endo, features="PDGFRB",log =T, cols= pal, pt.size = 0.5)
+
+
+#IFNAR2--ENSG00000159110
+plot_density(object =data_covid_Endo, "IFNAR2",reduction = "umap") 
+pal <- paletteer_d("ggsci::nrc_npg")[c(1,2,4,5,7,6,9,10)]
+VlnPlot(object =data_covid_Endo, features="IFNAR2",log =T, cols= pal, pt.size = 0.5)
+
+
+ 
+
+#"MAPK10","TNFSF13B",
+##---dotplot for druggable genes specific to MSCss
+Markers <- c("PIK3R1","PIK3CA","PDGFRB","IFNAR2","IL1R1",
+             "VEGFA","HIF1A")
+
+DotPlot(data_lung_mesen, features = Markers)+RotatedAxis()+
+  FontSize(x.text = 9.9,y.text = 8.5)+ggplot2:::coord_flip()+
+  scale_color_gradientn(values = seq(0,1,0.2),
+                        colours = c('#330066','#336699','#66CC66','#FFCC33'))
+
+
+
+
+#################-------------------------pheatmap--for-markers---------------
+library("pheatmap")
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\02-brain-HCO-12\\severe")
+
+data_specificty <- read.table("top_specificity_genes.txt",header = T)
+
+mat <-data_specificty[,c(-1,-2)]
+row.names(mat)<-data_specificty[,1]
+
+pheatmap(mat, 
+         clustering_method = "ward.D",
+         cluster_cols = T, 
+         cluster_rows = T, 
+         #gaps_col = c(5,7,10,14,19),
+         fontsize=10,
+         main = "specificity",
+         color = c(colorRampPalette(c("SteelBlue","white", "firebrick3"))(50)))
+
+
+
+pheatmap(mat, 
+         clustering_method = "ward.D",
+         cluster_cols = T, 
+         cluster_rows = T, 
+         #gaps_col = c(5,7,10,14,19),
+         fontsize=10,
+         main = "num of FDR0.05 > 1 (N=193)",
+         color = c(colorRampPalette(c("SteelBlue","Gold", "firebrick3"))(50)))
+
+
+
+
+
+
+
+#--Geary's C method in VISION
+#############--Vision for calculating the significance of heterogeneity among brain endothelial cells
+###################################################################################
+#VISION
+#----------------------------------------------
+#Cell signature score
+
+require(devtools)
+options(download.file.method = "libcurl")  #good for downloading packages from Github
+#install_github("YosefLab/VISION")
+library(VISION) 
+
+#Pagwas_seu_OPC cells
+n.umi<-colSums(data_covid_Endo@assays$RNA@counts)
+scaled_counts <- t(t(as.matrix(data_covid_Endo@assays$RNA@counts))/n.umi) * median(n.umi)
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\02-brain-HCO-12\\severe")
+
+#vision
+vis <- Vision(scaled_counts,
+              #signatures = c("C:\\Users\\MYL\\Desktop\\scPagwas_AD\\Geneset_for_vision_score.gmt"))
+              signatures = c("Top_rank_1000_genes.gmt"))
+
+
+#Running vision
+options(mc.cores=2)
+
+vis<-analyze(vis)
+
+#Viewing the results
+viewResults(vis)
+
+
+# Display autocorrelation coefficients, p-values for signatures
+head(getSignatureAutocorrelation(vis))
+
+
+
+
+
+
+#########----------------fetal_reference_scRNA-seq data--------#######################
+
+fetal_cell_scRNA <- readRDS("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\00-fetal_reference_scRNA-seq\\full_fetal_leave_eye_umap.rds")
+
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(1,2,4,5,7,6,9)]
+
+Idents(fetal_cell_scRNA) <- fetal_cell_scRNA$organ
+DimPlot(fetal_cell_scRNA, reduction = "umap",label = TRUE,  cols= pal, pt.size = 0.5, repel = T)
+
+
+
+
