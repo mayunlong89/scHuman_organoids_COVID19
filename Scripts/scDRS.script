@@ -1,1 +1,48 @@
 
+#Codes on scDRS for integrating GWAS on COVID-19 and scRNA-seq data on three primary human organoids
+
+
+#1) Code for runing human lung organoid scRNA-seq data
+
+scdrs compute-score --h5ad-file /share2/pub/zhouyj/zhouyj/organoid/data/lung/analysis/HLO-3/drived_data/scdrs/HLO-3-drs.h5ad \
+--h5ad-species human --gs-file /share2/pub/zhouyj/zhouyj/organoid/data/lung/analysis/HLO-3/drived_data/scdrs/scPagwas/HLO-3_1k.gs \
+--out-folder /share2/pub/zhouyj/zhouyj/organoid/data/lung/analysis/HLO-3/drived_data/scdrs/scPagwas/ \
+--n-ctrl 1000 \
+--gs-species human
+
+scdrs perform-downstream --h5ad-file /share2/pub/zhouyj/zhouyj/organoid/data/lung/analysis/HLO-3/drived_data/scdrs/HLO-3-drs.h5ad  \
+--score-file /share2/pub/zhouyj/zhouyj/organoid/data/lung/analysis/HLO-3/drived_data/scdrs/scPagwas/COVID-19.full_score.gz \
+--out-folder /share2/pub/zhouyj/zhouyj/organoid/data/lung/analysis/HLO-3/drived_data/scdrs/scPagwas/  \
+--group-analysis cell_type \
+--gene-analysis
+
+
+
+#2) Code for runing human intestinal organoid scRNA-seq data
+
+scdrs compute-score --h5ad-file /share2/pub/zhouyj/zhouyj/organoid/data/intestine/analysis/HIO-6/drived_data/scdrs/HIO-6-drs.h5ad \
+--h5ad-species human --gs-file /share2/pub/zhouyj/zhouyj/organoid/data/intestine/analysis/HIO-6/drived_data/scdrs/scPagwas/HIO-6_1k.gs \
+--out-folder /share2/pub/zhouyj/zhouyj/organoid/data/intestine/analysis/HIO-6/drived_data/scdrs/scPagwas/ \
+--n-ctrl 1000 \
+--gs-species human
+
+scdrs perform-downstream --h5ad-file /share2/pub/zhouyj/zhouyj/organoid/data/intestine/analysis/HIO-6/drived_data/scdrs/HIO-6-drs.h5ad  \
+--score-file /share2/pub/zhouyj/zhouyj/organoid/data/intestine/analysis/HIO-6/drived_data/scdrs/scPagwas/COVID-19.full_score.gz \
+--out-folder /share2/pub/zhouyj/zhouyj/organoid/data/intestine/analysis/HIO-6/drived_data/scdrs/scPagwas/  \
+--group-analysis cell_type \
+--gene-analysis
+
+
+#3) Code for runing human brain organoid scRNA-seq data
+
+scdrs compute-score --h5ad-file /share2/pub/zhouyj/zhouyj/organoid/data/brain/analysis/HCO-12/drived_data/scdrs/HCO-12-drs.h5ad \
+--h5ad-species human --gs-file /share2/pub/zhouyj/zhouyj/organoid/data/brain/analysis/HCO-12/drived_data/scdrs/scPagwas/HCO-12_1k.gs \
+--out-folder /share2/pub/zhouyj/zhouyj/organoid/data/brain/analysis/HCO-12/drived_data/scdrs/scPagwas/ \
+--n-ctrl 1000 \
+--gs-species human
+
+scdrs perform-downstream --h5ad-file /share2/pub/zhouyj/zhouyj/organoid/data/brain/analysis/HCO-12/drived_data/scdrs/HCO-12-drs.h5ad  \
+--score-file /share2/pub/zhouyj/zhouyj/organoid/data/brain/analysis/HCO-12/drived_data/scdrs/scPagwas/COVID-19.full_score.gz \
+--out-folder /share2/pub/zhouyj/zhouyj/organoid/data/brain/analysis/HCO-12/drived_data/scdrs/scPagwas/  \
+--group-analysis cell_type \
+--gene-analysis
