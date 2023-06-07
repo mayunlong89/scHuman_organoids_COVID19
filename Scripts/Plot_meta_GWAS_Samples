@@ -1,0 +1,33 @@
+#@ 2023-05-31
+#Summary the GWAS sample sizes of each dataset in the meta-analysis
+#Using barplot with breaks
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\00-Summary of GWAS Summary-cohorts")
+
+
+data_A2 <- read.table("A2_sample_count.txt",header = TRUE)
+data_B2 <- read.table("B2_sample_count.txt",header = TRUE)
+data_C2 <- read.table("C2_sample_count.txt",header = TRUE)
+
+library(ggplot2)
+library(reshape2)
+
+md<-melt(data_A2,id=c("Name"))
+md<-melt(data_B2,id=c("Name"))
+md<-melt(data_C2,id=c("Name"))
+head(md)
+
+#利用geom_bar() or geom_col()绘制堆栈式条形图——'stack'
+ggplot(md,aes(x=Name,y=value))+
+  geom_col(aes(fill=variable), width = 0.6)+
+  coord_flip()+
+  scale_fill_brewer(palette = "Set2")+
+  scale_y_continuous(expand = c(0,0))+
+  labs(y="",x="",
+       fill="Group",title="")+
+  theme(panel.background = element_blank(),
+        panel.grid = element_blank(),
+        text=element_text(size=9),
+    axis.title.x = element_text(angle = 0,vjust = 0.5, hjust = 0.5))+
+  scale_y_sqrt("Sample sizes",breaks = c(100,500,1000,5000,50000,100000,450000)) 
+  
