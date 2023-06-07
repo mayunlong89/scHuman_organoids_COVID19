@@ -194,3 +194,7 @@ Bootstrap_estimate_Plot(Pagwas=Pagwas,
 dev.off()
 
  ```
+
+# Citation
+Ma et al. (2023) Integration of human organoids single-cell transcriptomic profiles and human genetics repurposes critical cell type-specific drug targets for severe COVID-19.
+
