@@ -1,0 +1,319 @@
+#Rscript
+#Date: 2022-8-18
+
+#Set the work directory
+#setwd("F:\\Desktop\\")
+set.seed(12345)
+
+#Part I Read data on significant genes and background genes
+
+#-----------Very severe COVID-19------------------------------------------------
+#Read significant genes from S-MultiXcan across_tissues integrative genomics analysis
+multixcan_sig <- read.table("S_MultiXcan_severe.txt", header=T)
+multixcan_gene <- multixcan_sig$Gene_name
+
+
+#Read significant genes from MAGMA gene-based association analysis
+magma_sig <- read.table("MAGMA_severe.txt", header=T)
+magma_gene <- magma_sig$Gene_name
+
+
+#Read background genes of S-MultiXcan integrative genomics analysis
+Backgroud_magma<- read.table("MAGMA_severe_background.txt", header=T)
+Backgroud_magma_gene <- Backgroud_magma$Gene_name
+
+
+#Calculate the numebr of genes in each gene set
+len_Sig_multixcan <- length(multixcan_gene)
+len_Sig_magma <- length(magma_gene)
+len_Backgroud_magma_gene <- length(Backgroud_magma_gene)
+
+
+##Adjusted RandIndex
+#library(flexclust)
+#randIndex(table(c(1,0,1,1,1,0,0,1),c(0,0,1,1,1,0,1,1)))
+
+##Jaccard Similarity Index(JSI) between two gene sets
+if(!require("proxy"))install.packages("proxy")
+library(proxy)
+if(!require("reshape"))install.packages("reshape")
+library(reshape)
+
+geneset1 <- magma_gene
+geneset2 <- multixcan_gene
+
+d1 <- intersect(geneset1,geneset2)
+d2 <- union(geneset1,geneset2)
+JD <- length(d1)/length(d2) #Jaccard similarity Index (JSI) coefficient为相似度指标,系数越大，相似度越高
+JD1 <- 1-JD  #Jaccard distance为相异性指标,系数越大，差异越大 
+JD  #Jaccard similarity Index (JSI)
+
+
+
+
+#Part II establish a function for permutation analysis
+
+#Permutation Function
+Permut_analysis <- function(x,y,z){
+  
+  random_selected_genes <- sample(x,y)
+  
+  temp <- match(random_selected_genes,z)
+  
+  random_overlaped_genes <- na.omit(temp)
+  
+  num<-length(random_overlaped_genes)
+  
+  return(num)
+  
+}
+
+
+#100000 times permutation analysis for MAGMA and S-MultiXcan analysis
+X1 <- Backgroud_magma_gene
+Y1 <- len_Sig_magma
+Z1 <- multixcan_gene
+results_perumt1 <- replicate(100000,Permut_analysis(X1,Y1,Z1))
+
+
+
+#Ploting function
+Fig_random <- function(x,y,z){
+  temp1 <- match(y,z)
+  Observed_overlaped_genes <- na.omit(temp1)
+  Observed_gene_num <- length(Observed_overlaped_genes)
+  xlim_value = Observed_gene_num+20
+  hist(x, col="lightblue",xlab="Counts of overlapped genes",xlim = c(0,xlim_value),main=NULL)
+  abline(v=Observed_gene_num,col="red",lty="longdash")
+  P_value=length(x[x>Observed_gene_num])/length(x)
+  x1 = Observed_gene_num+10
+  freq <- table(x)
+  y1= max(freq)
+  text(x1,y1,paste("P=",P_value))
+  
+}
+
+
+
+freq <- table(results_perumt1)
+max(freq)
+
+
+#Visulization for MAGMA and S-MultiXcan analysis
+Fig_random(results_perumt1,magma_gene,multixcan_gene)
+ 
+
+
+
+
+#Part II Read data on significant genes and background genes
+
+#-----------Hospitalized COVID-19------------------------------------------------
+#Read significant genes from S-MultiXcan across_tissues integrative genomics analysis
+multixcan_sig <- read.table("S_MultiXcan_hospitalized.txt", header=T)
+multixcan_gene <- multixcan_sig$Gene_name
+
+
+#Read significant genes from MAGMA gene-based association analysis
+magma_sig <- read.table("MAGMA_hospitalized.txt", header=T)
+magma_gene <- magma_sig$Gene_name
+
+
+#Read background genes of S-MultiXcan integrative genomics analysis
+Backgroud_magma<- read.table("MAGMA_hospitalized _background.txt", header=T)
+Backgroud_magma_gene <- Backgroud_magma$Gene_name
+
+
+#Calculate the numebr of genes in each gene set
+len_Sig_multixcan <- length(multixcan_gene)
+len_Sig_magma <- length(magma_gene)
+len_Backgroud_magma_gene <- length(Backgroud_magma_gene)
+
+
+##Jaccard Similarity Index(JSI) between two gene sets
+if(!require("proxy"))install.packages("proxy")
+library(proxy)
+if(!require("reshape"))install.packages("reshape")
+library(reshape)
+
+geneset1 <- magma_gene
+geneset2 <- multixcan_gene
+
+d1 <- intersect(geneset1,geneset2)
+d2 <- union(geneset1,geneset2)
+JD <- length(d1)/length(d2) #Jaccard similarity Index (JSI) coefficient为相似度指标,系数越大，相似度越高
+JD1 <- 1-JD  #Jaccard distance为相异性指标,系数越大，差异越大 
+JD  #Jaccard similarity Index (JSI)
+
+
+
+
+#Part II establish a function for permutation analysis
+
+#Permutation Function
+Permut_analysis <- function(x,y,z){
+  
+  random_selected_genes <- sample(x,y)
+  
+  temp <- match(random_selected_genes,z)
+  
+  random_overlaped_genes <- na.omit(temp)
+  
+  num<-length(random_overlaped_genes)
+  
+  return(num)
+  
+}
+
+
+#100000 times permutation analysis for MAGMA and S-MultiXcan analysis
+X1 <- Backgroud_magma_gene
+Y1 <- len_Sig_magma
+Z1 <- multixcan_gene
+results_perumt1 <- replicate(100000,Permut_analysis(X1,Y1,Z1))
+
+
+#Ploting function
+Fig_random <- function(x,y,z){
+  temp1 <- match(y,z)
+  Observed_overlaped_genes <- na.omit(temp1)
+  Observed_gene_num <- length(Observed_overlaped_genes)
+  xlim_value = Observed_gene_num+20
+  hist(x, col="lightblue",xlab="Counts of overlapped genes",xlim = c(0,xlim_value),main=NULL)
+  abline(v=Observed_gene_num,col="red",lty="longdash")
+  P_value=length(x[x>Observed_gene_num])/length(x)
+  x1 = Observed_gene_num+10
+  freq <- table(x)
+  y1= max(freq)
+  text(x1,y1,paste("P=",P_value))
+  
+}
+
+
+
+freq <- table(results_perumt1)
+max(freq)
+
+
+#Visulization for MAGMA and S-MultiXcan analysis
+Fig_random(results_perumt1,magma_gene,multixcan_gene)
+
+
+
+
+
+#Part III Read data on significant genes and background genes
+
+#-----------Hospitalized COVID-19------------------------------------------------
+#Read significant genes from S-MultiXcan across_tissues integrative genomics analysis
+multixcan_sig <- read.table("S_MultiXcan_susceptible.txt", header=T)
+multixcan_gene <- multixcan_sig$Gene_name
+
+
+#Read significant genes from MAGMA gene-based association analysis
+magma_sig <- read.table("MAGMA_susceptible.txt", header=T)
+magma_gene <- magma_sig$Gene_name
+
+
+#Read background genes of S-MultiXcan integrative genomics analysis
+Backgroud_magma<- read.table("MAGMA_susceptible_background.txt", header=T)
+Backgroud_magma_gene <- Backgroud_magma$Gene_name
+
+
+#Calculate the numebr of genes in each gene set
+len_Sig_multixcan <- length(multixcan_gene)
+len_Sig_magma <- length(magma_gene)
+len_Backgroud_magma_gene <- length(Backgroud_magma_gene)
+
+##Jaccard Similarity Index(JSI) between two gene sets
+if(!require("proxy"))install.packages("proxy")
+library(proxy)
+if(!require("reshape"))install.packages("reshape")
+library(reshape)
+
+geneset1 <- magma_gene
+geneset2 <- multixcan_gene
+
+d1 <- intersect(geneset1,geneset2)
+d2 <- union(geneset1,geneset2)
+JD <- length(d1)/length(d2) #Jaccard similarity Index (JSI) coefficient为相似度指标,系数越大，相似度越高
+JD1 <- 1-JD  #Jaccard distance为相异性指标,系数越大，差异越大 
+JD  #Jaccard similarity Index (JSI)
+
+
+#Part II establish a function for permutation analysis
+
+#Permutation Function
+Permut_analysis <- function(x,y,z){
+  
+  random_selected_genes <- sample(x,y)
+  
+  temp <- match(random_selected_genes,z)
+  
+  random_overlaped_genes <- na.omit(temp)
+  
+  num<-length(random_overlaped_genes)
+  
+  return(num)
+  
+}
+
+
+#100000 times permutation analysis for MAGMA and S-MultiXcan analysis
+X1 <- Backgroud_magma_gene
+Y1 <- len_Sig_magma
+Z1 <- multixcan_gene
+results_perumt1 <- replicate(100000,Permut_analysis(X1,Y1,Z1))
+
+
+#Ploting function
+Fig_random <- function(x,y,z){
+  temp1 <- match(y,z)
+  Observed_overlaped_genes <- na.omit(temp1)
+  Observed_gene_num <- length(Observed_overlaped_genes)
+  xlim_value = Observed_gene_num+20
+  hist(x, col="lightblue",xlab="Counts of overlapped genes",xlim = c(0,xlim_value),main=NULL)
+  abline(v=Observed_gene_num,col="red",lty="longdash")
+  P_value=length(x[x>Observed_gene_num])/length(x)
+  x1 = Observed_gene_num+10
+  freq <- table(x)
+  y1= max(freq)
+  text(x1,y1,paste("P=",P_value))
+  
+}
+
+
+
+freq <- table(results_perumt1)
+max(freq)
+
+
+#Visulization for MAGMA and S-MultiXcan analysis
+Fig_random(results_perumt1,magma_gene,multixcan_gene)
+
+
+
+
+
+##########------------------Venn 图---using UpSetR包for spredixcan_lung and blood
+
+#install.packages("UpSetR")
+library(UpSetR)
+
+data_spredixcan <- read.csv("Venn_plot_for_S_prediXcan.csv",header = TRUE)
+
+
+upset(data_spredixcan,nsets = 7, nintersects = 40,mb.ratio = c(0.5,0.5),
+      order.by = c("freq","degree"),decreasing = c(TRUE,FALSE))
+
+
+
+
+
+
+
+
+
+
+
+#End
