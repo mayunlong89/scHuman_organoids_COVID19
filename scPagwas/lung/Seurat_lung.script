@@ -1,0 +1,799 @@
+
+#2022-08-30
+
+
+library(ggplot2)
+library(Seurat)
+
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\03-lung-HLO-3")
+
+data_lung <- readRDS("./severe/HLO-3.rds")
+
+
+
+##基因名---注释
+row.names(data_lung@assays$RNA@counts) <- data_lung@assays[["RNA"]]@meta.features[["gene_symbols"]]
+row.names(data_lung@assays$RNA@data)   <- data_lung@assays[["RNA"]]@meta.features[["gene_symbols"]]
+
+table(data_lung$annotation2)
+
+Idents(data_lung)<-data_lung$annotation2
+DimPlot(data_lung, reduction = "umap",label = TRUE)
+
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(7,5,6)]
+DimPlot(data_lung, reduction = "umap",label = F,  cols= pal, pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+##scPagwas_cell TRS/P vaule/gPAS score
+cell_annotation <- read.csv("HLO-3_severe_singlecell_scPagwas_score_pvalue.Result.csv")
+
+data_lung$scPagwas.TRS.Score1 <- cell_annotation$scPagwas.TRS.Score1
+data_lung$scPagwas.gPAS.score <- cell_annotation$scPagwas.gPAS.score
+data_lung$CellScalepValue <- cell_annotation$CellScalepValue
+
+
+
+W2<-FeaturePlot(data_lung, reduction = "umap",
+                features = "scPagwas.TRS.Score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+W2<-FeaturePlot(data_lung, reduction = "umap",
+                features = "scPagwas.TRS.Score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+
+##must expressed markers for Fibroblast
+FeaturePlot(object = data_lung, features= "COL1A1")
+FeaturePlot(object = data_lung, features= "COL1A2")
+FeaturePlot(object = data_lung, features= "COL5A1")
+FeaturePlot(object = data_lung, features= "LOXL1")
+FeaturePlot(object = data_lung, features= "LUM")
+FeaturePlot(object = data_lung, features= "FBLN1")
+FeaturePlot(object = data_lung, features= "FBLN2")
+FeaturePlot(object = data_lung, features= "CD34")
+FeaturePlot(object = data_lung, features= "PDGFRA")
+
+
+
+
+##---------------(2)----------------------------------##
+#Add_Module_score for genetics risk genes
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+#FeaturePlot
+#features <- c("CSNK2B")
+#FeaturePlot(liverCells, features = features)
+
+##利用TWAS 67 common risk genes as putative causal genes for severe COVID-19
+
+Markers <- c('RAB2A','RP11-589B3.6','KRTCAP2','FOXP4','ICAM3','SFTPA2','OAS3','OAS1',"CCR9","KCNC3",
+             'PSORS1C2','MED24','CCR2','EFNA1','CAT','LINC01301','CCR1','ELF5',"CSF3","ACSL6","AP000569.9",
+             "ZGLP1","SLC50A1","NFKBIZ","ATP5O","CCR5","PLEKHA4","MRPS6","SFTPD","EFNA3","PSORS1C1","TCF19",
+             "FYCO1","CXCR6","TRIM46","MCM7","C6orf15","NTN5","GSDMA","NAPSA","TNFAIP8L1","MUC1","ZKSCAN1",
+             "IFNAR2","HLA-C","EFNA4","PSMD3","FUT2","SLC6A20","ABO","CCHCR1","MTX1","ADAM15","RASIP1","IL10RB",
+             "LTF","MYDGF","RAVER1","DPP9","FBRSL1","LZTFL1","CCR3","MAMSTR","FDX2","ACSF3","XCR1","CCRL2")
+
+
+
+
+##Common genetic causal genes 67
+#covid_risk_genes<-common_67gene_correlation$gene
+
+covid_risk_genes<-Markers
+
+#RidgePlot(liverCells, features = unique(pbc_risk_genes), ncol = 2)
+#DotPlot(liverCells, features = unique(pbc_risk_genes)) + RotatedAxis()
+#DotPlot(pbmc, features = unique(pbc_risk_genes)) + RotatedAxis()
+
+#?Dotplot()
+#?DiscretePalette()
+
+
+data_lung <- AddModuleScore(data_lung,
+                             features = list(covid_risk_genes),
+                             name="covid_risk_genes")
+W2<-FeaturePlot(data_lung, reduction = "umap",
+                features = "covid_risk_genes1", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+Idents(data_lung)<-data_lung$covid_risk_genes1
+
+
+
+
+
+
+
+#计算TRS各细胞类型组之间的差别
+#violin plot
+library(ggplot2)
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal3 <- paletteer_d("ggsci::nrc_npg")[c(6,7,5)]
+
+TRS <- as.data.frame(data_lung$scPagwas.TRS.Score1)
+Celltype <- as.data.frame(data_lung$annotation2)
+combind_cc<- as.data.frame(cbind(Celltype,TRS))
+
+names(combind_cc)<- c("group","value")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal3)
+
+
+
+#boxplot(Positive_risk_score,Negative_risk_score)
+#t.test(Negative_risk_score,Positive_risk_score)
+#wilcox.test(Negative_risk_score,Positive_risk_score)
+
+
+#计算Causal gene scores各细胞类型组之间的差别
+CGS <- as.data.frame(data_lung$covid_risk_genes1)
+Celltype <- as.data.frame(data_lung$annotation2)
+combind_cc<- as.data.frame(cbind(Celltype,CGS))
+
+names(combind_cc)<- c("group","value")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal3)
+
+
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal3)
+
+
+
+
+##>>>>>>>>>>可视化基因遗传关联性排秩点图
+#heritability_cor_scatterplot.R
+#source("F:\\02-温医大-科研数据\\0000-scRNA\\000-单细胞+GWAS-软件开发\\001-scRNA-GWAS-软件开发\\00-Data-analysis-2\\visulizeplotR/heritability_cor_scatterplot.R")
+source("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\gene_correlation_plot.R")
+
+cell_gene_correlation <- read.csv("HLO-3_severe_gene_heritability_correlation.csv")
+data_gene <- cell_gene_correlation
+colnames(data_gene)<- c("gene","cor")
+head(data_gene)
+class(data_gene)
+
+
+gene_correlation_plot(gene_heri_cor=data_gene)
+
+
+
+
+
+
+
+
+###################################################------Density_plot
+###density_plot_for individual genes
+options(repos=structure(c(CRAN="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")))
+options(download.file.method = "libcurl")
+#if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager") 
+#BiocManager::install("Nebulosa")
+#install.packages("ks")
+library("Nebulosa")
+library("Seurat")
+library("BiocFileCache")
+library(paletteer)
+
+#NAPSA
+plot_density(object =data_lung, "NAPSA",reduction = "umap") 
+
+
+#IFNAR2--ENSG00000159110
+plot_density(object =data_lung, "IFNAR2",reduction = "umap") 
+
+#MUC1
+plot_density(object =data_lung, "MUC1",reduction = "umap")
+
+#SFTPA2
+plot_density(object =data_lung, "SFTPA2",reduction = "umap")
+
+#SFTPD
+plot_density(object =data_lung, "SFTPD",reduction = "umap")
+
+#FYCO1
+plot_density(object =data_lung, "FYCO1",reduction = "umap")
+
+#KCNC3
+plot_density(object =data_lung, "KCNC3",reduction = "umap")
+
+#CCR1
+plot_density(object =data_lung, "CCR1",reduction = "umap")
+
+
+#C6orf15
+plot_density(object =data_lung, "C6orf15",reduction = "umap")
+
+#LTF
+plot_density(object =data_lung, "LTF",reduction = "umap")
+
+#CCR5
+plot_density(object =data_lung, "CCR5",reduction = "umap")
+
+
+#CXCR6
+plot_density(object =data_lung, "CXCR6",reduction = "umap")
+
+
+
+
+
+
+
+##---------------Cell-type-association results---------------------------########
+
+#Plot figures------Cell type dotplot_scaled_y_axis
+
+library(reshape2)
+library(ggplot2)
+library(paletteer)
+
+data <- read.table("lung_severe.txt", sep="\t", header=T)
+data2 <- melt(data)
+#利用levels对数据进行排序
+data2$annotation <- factor(data2$annotation,levels = data$annotation)
+class(data2)
+
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(2,1,5)]
+data2$group<-c("sig","sug","non-sig")
+
+ggplot(data2, aes(x=annotation, y=value))+
+  geom_point(aes(color=group), size=4)+
+  scale_color_manual(values=pal2)+
+  scale_y_sqrt("-Log10(P-value)", breaks=c(0.5,2,5,10,15))+
+  theme_classic()+
+  theme(axis.text.x =  element_text(angle = 90, hjust = 1, vjust = .5))#+
+  #geom_hline(yintercept =-log10(0.05), color="red", lty=12)
+  #geom_hline(yintercept =-log10(0.05), color="red", lty=11)
+
+ 
+
+
+
+###-1----All lung organoids cells====> positive cells VS negative cells
+data_lung$annotation1 <- as.vector(data_lung$annotation2)
+table(data_lung$annotation2)
+table(data_lung$annotation1)
+
+
+#Cell counts
+len <- length(data_lung$CellScalepValue)
+
+threshold <- 0.05/len
+
+
+#定义阳性细胞的比例
+data_lung$positive_cells <- c(1:len)
+data_lung$positive_cells[which(data_lung$CellScalepValue<threshold | data_lung$CellScalepValue == threshold )]<- "positive_cells"
+data_lung$positive_cells[which(data_lung$CellScalepValue> threshold)]<- "negative_cells"
+table(data_lung$positive_cells)
+
+table(data_lung$annotation1)
+mytable<-table(data_lung$annotation1,data_lung$positive_cells)
+prop.table(mytable,1)
+
+
+##Positive cells vs negative cells differential gene expression analysis
+Idents(data_lung) <- data_lung$positive_cells
+table(Idents(data_lung))
+Idents(data_lung)
+
+length(colnames(data_lung)[which(data_lung$positive_cells == 'positive_cells')])
+length(colnames(data_lung)[which(data_lung$positive_cells == 'negative_cells')])
+
+
+
+
+
+########------------------scDRS------------score for Lung organoids based on scPagwas-identified top-ranked 1000 genes
+
+scDRS <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_lung.score",head = TRUE)
+
+scDRS <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_lung.score",head = TRUE)
+
+scDRS$FDR <- p.adjust(scDRS$pval,method = "BH",n=length(scDRS$pval))
+
+colnames(data_lung)
+
+scDRS$CellID
+
+
+library(dplyr)
+subset_2 <- intersect(scDRS$CellID,colnames(data_lung))
+setdiff(colnames(data_lung),subset_2)
+"TTCTCAATCAGCACAT-1-CR_D14"
+
+###剔除一个细胞：
+Idents(data_lung) <- colnames(data_lung)
+data_lung_2 <- subset(data_lung,idents= subset_2)
+
+data_lung_2$scDRS_norm_score <- scDRS$norm_score[which(scDRS$CellID %in% colnames (data_lung_2))]
+head(data_lung_2$scDRS_norm_score)
+data_lung_2$scDRS_pval <- scDRS$pval[which(scDRS$CellID %in% colnames (data_lung_2))]
+data_lung_2$scDRS_nlog10_pval <- scDRS$nlog10_pval[which(scDRS$CellID %in% colnames (data_lung_2))]
+data_lung_2$scDRS_FDR <- scDRS$FDR[which(scDRS$CellID %in% colnames (data_lung_2))]
+
+
+
+
+cor.test(data_lung_2$scDRS_norm_score,data_lung_2$scPagwas.TRS.Score1)
+
+plot(data_lung_2$scPagwas.TRS.Score1,data_lung_2$scDRS_norm_score,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_lung_2$scDRS_norm_score~data_lung_2$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+W2<-FeaturePlot(data_lung_2, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+W2<-FeaturePlot(data_lung_2, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+##scDRS_MAGMA
+scDRS_magma <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_lung_scDRS_magma.score",head = TRUE)
+
+library(dplyr)
+subset_3 <- intersect(scDRS_magma$CellID,colnames(data_lung))
+setdiff(colnames(data_lung),subset_3)
+"TTCTCAATCAGCACAT-1-CR_D14"
+
+#Idents(data_lung) <- colnames(data_lung)
+#data_lung_2 <- subset(data_lung,idents= subset_3)
+
+data_lung_2$scDRS_norm_score_magma <- scDRS_magma$norm_score[which(scDRS_magma$CellID %in% colnames(data_lung_2))]
+head(data_lung_2$scDRS_norm_score_magma)
+data_lung_2$scDRS_pval_magma <- scDRS_magma$pval[which(scDRS_magma$CellID %in% colnames(data_lung_2))]
+data_lung_2$scDRS_nlog10_pval_magma <- scDRS_magma$nlog10_pval[which(scDRS_magma$CellID %in% colnames(data_lung_2))]
+
+cor.test(data_lung_2$scDRS_norm_score_magma,data_lung_2$scPagwas.TRS.Score1)
+
+plot(data_lung_2$scPagwas.TRS.Score1,data_lung_2$scDRS_norm_score_magma,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_lung_2$scDRS_norm_score~data_lung_2$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+W2<-FeaturePlot(data_lung_2, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+W2<-FeaturePlot(data_lung_2, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+#-------------------------lung cell
+Idents(data_lung)<-data_lung$annotation2
+table(Idents(data_lung))
+data_lung_endo <- subset(data_lung,idents = "Endothelial Cell")
+
+table(data_lung_endo$positive_cells)
+
+##calculate significant genes FOR cluster 4 vs other cells
+Idents(data_lung_endo)<-data_lung_endo$positive_cells
+markers_df1 <- FindMarkers(object =data_lung_endo, 
+                          ident.1  ='positive_cells',
+                          ident.2 ='negative_cells', 
+                          min.pct = 0.1,logfc.threshold=0)
+
+print(x = head(markers_df1))
+markers_genes1 =  rownames(head(x = markers_df1, n = 6))
+VlnPlot(object =data_lung_endo, features =markers_genes1,log =T )
+FeaturePlot(object = data_lung_endo, features=markers_genes1)
+
+write.csv(markers_df,"./scPagwas_naive_CD8T_cluster_4_for_severe_COVID-19_sig.csv")
+
+
+
+
+##############--------------Important part----------------------------------------
+
+#-------------------------Mesenchymal Cell---------------------------------------
+Idents(data_lung)<-data_lung$annotation2
+table(Idents(data_lung))
+data_lung_mesen <- subset(data_lung,idents = "Mesenchymal Cell")
+
+table(data_lung_mesen$positive_cells)
+
+#---------data_lung_mesen_re-UMAP
+
+data_lung_mesen <- subset(data_lung,idents = "Mesenchymal Cell")
+
+
+#####################################################---------------Start-------
+#Re-PCA and UMAP for all severe
+data_lung_mesen = FindVariableFeatures(data_lung_mesen, do.plot = F, display.progress = FALSE)
+data_lung_mesen = ScaleData(data_lung_mesen, display.progress = FALSE)
+data_lung_mesen <- RunPCA(data_lung_mesen, verbose = FALSE)
+ElbowPlot(data_lung_mesen, ndims = 20)
+data_lung_mesen <- FindNeighbors(object = data_lung_mesen, dims = 1:20)
+data_lung_mesen <- FindClusters(object = data_lung_mesen, resolution = 0.1)
+data_lung_mesen <- RunUMAP(object = data_lung_mesen, dims = 1:20)
+data_lung_mesen <- RunTSNE(object = data_lung_mesen, dims = 1:20)
+
+#plot by using UMAP
+Idents(data_lung_mesen)<-data_lung_mesen$RNA_snn_res.0.1
+Idents(data_lung_mesen)<-data_lung_mesen$positive_cells
+DimPlot(data_lung_mesen, reduction = "umap")
+
+table(Idents(data_lung_mesen))
+
+
+####-----Load RDS data for Lung mesen
+saveRDS(data_lung_mesen,file="F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\03-lung-HLO-3\\severe\\HLO_3_MSC.rds")
+
+data_lung_mesen <- readRDS("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\03-lung-HLO-3\\severe\\HLO_3_MSC.rds")
+
+
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(9,2,7,5,6)]
+Idents(data_lung_mesen)<-data_lung_mesen$RNA_snn_res.0.1
+DimPlot(data_lung_mesen, reduction = "umap",label = T,  cols= pal, pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+Idents(data_lung_mesen)<-data_lung_mesen$positive_cells
+DimPlot(data_lung_mesen, reduction = "umap",label = F,  cols= c("grey","#DC0000FF"), pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+W2<-FeaturePlot(data_lung_mesen, reduction = "umap",
+                features = "scPagwas.TRS.Score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+
+
+
+
+########------------------scDRS------------score for MSCs based on scPagwas-identified top-ranked 1000 genes
+
+scDRS <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_lung.score",head = TRUE)
+
+scDRS$FDR <- p.adjust(scDRS$pval,method = "BH",n=length(scDRS$pval))
+
+
+colnames(data_lung_mesen)
+
+scDRS$CellID
+
+
+library(dplyr)
+subset_1 <- intersect(scDRS$CellID,colnames(data_lung_mesen))
+setdiff(colnames(data_lung_mesen),subset_1)
+"TTCTCAATCAGCACAT-1-CR_D14"
+
+###剔除一个细胞：
+Idents(data_lung_mesen) <- colnames(data_lung_mesen)
+data_lung_mesen2 <- subset(data_lung_mesen,idents= subset_1)
+
+data_lung_mesen2$scDRS_norm_score <- scDRS$norm_score[which(scDRS$CellID %in% colnames(data_lung_mesen2))]
+head(data_lung_mesen2$scDRS_norm_score)
+data_lung_mesen2$scDRS_pval <- scDRS$pval[which(scDRS$CellID %in% colnames(data_lung_mesen2))]
+data_lung_mesen2$scDRS_nlog10_pval <- scDRS$nlog10_pval[which(scDRS$CellID %in% colnames(data_lung_mesen2))]
+data_lung_mesen2$scDRS_FDR <- scDRS$FDR[which(scDRS$CellID %in% colnames(data_lung_mesen2))]
+
+cor.test(data_lung_mesen2$scDRS_norm_score,data_lung_mesen2$scPagwas.TRS.Score1)
+
+plot(data_lung_mesen2$scPagwas.TRS.Score1,data_lung_mesen2$scDRS_norm_score,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_lung_mesen2$scDRS_norm_score~data_lung_mesen2$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+W2<-FeaturePlot(data_lung_mesen2, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+W2<-FeaturePlot(data_lung_mesen2, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+
+
+#定义阳性细胞的比例 for scDRS
+threshold = 0.05
+data_lung_mesen2$scDRS_positive_cells <- c(1:length(data_lung_mesen2$scDRS_norm_score))
+data_lung_mesen2$scDRS_positive_cells[which(data_lung_mesen2$scDRS_FDR<threshold | data_lung_mesen2$scDRS_FDR == threshold )]<- "positive_cells"
+data_lung_mesen2$scDRS_positive_cells[which(data_lung_mesen2$scDRS_FDR> threshold)]<- "negative_cells"
+table(data_lung_mesen2$scDRS_positive_cells)
+
+table(data_lung_mesen2$annotation1)
+mytable<-table(data_lung_mesen2$positive_cells,data_lung_mesen2$scDRS_positive_cells)
+prop.table(mytable,1)
+
+Idents(data_lung_mesen2)<-data_lung_mesen$positive_cells
+DimPlot(data_lung_mesen2, reduction = "umap",label = F,  cols= c("grey","#DC0000FF"), pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+
+##scDRS_MAGMA for MSCs
+scDRS_magma <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_lung_scDRS_magma.score",head = TRUE)
+
+library(dplyr)
+subset_1 <- intersect(scDRS_magma$CellID,colnames(data_lung_mesen))
+setdiff(colnames(data_lung_mesen),subset_1)
+"TTCTCAATCAGCACAT-1-CR_D14"
+
+###剔除一个细胞：
+#Idents(data_lung_mesen) <- colnames(data_lung_mesen)
+#data_lung_mesen2 <- subset(data_lung_mesen,idents= subset_1)
+
+data_lung_mesen2$scDRS_norm_score_magma <- scDRS_magma$norm_score[which(scDRS_magma$CellID %in% colnames(data_lung_mesen2))]
+head(data_lung_mesen2$scDRS_norm_score_magma)
+data_lung_mesen2$scDRS_pval_magma <- scDRS$pval[which(scDRS_magma$CellID %in% colnames(data_lung_mesen2))]
+data_lung_mesen2$scDRS_nlog10_pval_magma <- scDRS$nlog10_pval[which(scDRS_magma$CellID %in% colnames(data_lung_mesen2))]
+
+cor.test(data_lung_mesen2$scDRS_norm_score_magma,data_lung_mesen2$scPagwas.TRS.Score1)
+
+plot(data_lung_mesen2$scPagwas.TRS.Score1,data_lung_mesen2$scDRS_norm_score_magma,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_lung_mesen2$scDRS_norm_score_magma~data_lung_mesen2$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+W2<-FeaturePlot(data_lung_mesen2, reduction = "umap",
+                features = "scDRS_norm_score_magma", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+W2<-FeaturePlot(data_lung_mesen2, reduction = "umap",
+                features = "scDRS_norm_score_magma", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+#####################################################---------------Stop--------
+
+
+#计算TRS各细胞类型组之间的差别
+#violin plot
+library(ggplot2)
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal3 <- paletteer_d("ggsci::nrc_npg")[c(9,2,7,5,6)]
+
+TRS <- as.data.frame(data_lung_mesen$scPagwas.TRS.Score1)
+Celltype <- as.data.frame(data_lung_mesen$RNA_snn_res.0.1)
+combind_cc<- as.data.frame(cbind(Celltype,TRS))
+
+names(combind_cc)<- c("group","value")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal3)
+
+
+
+
+##calculate significant genes FOR positive cells vs negative cells
+Idents(data_lung_mesen)<-data_lung_mesen$positive_cells
+
+markers_df <- FindMarkers(object =data_lung_mesen,
+                          ident.1 = colnames(data_lung_mesen)[which(data_lung_mesen$positive_cells == 'positive_cells')],
+                          ident.2 = colnames(data_lung_mesen)[which(data_lung_mesen$positive_cells == 'negative_cells')], 
+                          min.pct = 0.1,logfc.threshold=0)
+
+print(x = head(markers_df))
+markers_genes =  rownames(head(x = markers_df, n = 6))
+VlnPlot(object =data_lung_mesen, features =markers_genes,log =T )
+FeaturePlot(object = data_lung_mesen, features=markers_genes )
+
+write.csv(markers_df,"lung_MSC_severe_COVID-19_sig.csv")
+
+
+
+
+
+
+###火山图，volcano plot
+
+DEG_genes2<-markers_df
+plot(DEG_genes2$avg_log2FC,-log10(DEG_genes2$p_val_adj),
+     xlim=c(-3, 3), ylim=c(0,300),
+     xlab="Log2 (fold change)", 
+     ylab="-Log10(FDR)")
+r10 <- DEG_genes2[which(DEG_genes2$avg_log2FC >=0.25  & DEG_genes2$p_val_adj<=0.05),] ##利用which函数对“数据某些行”进行提取，即rs7635815和category<0.6
+x <- r10$avg_log2FC
+y <- -log10(r10$p_val_adj)
+points(x,y,pch = 21,cex = 1.25, lwd = 1.3, col = "white", bg =  "#F39B7FFF")
+
+r11 <- DEG_genes2[which(DEG_genes2$avg_log2FC<=-0.25 & DEG_genes2$p_val_adj<=0.05),] ##利用which函数对“数据某些行”进行提取，即rs7635815和category<0.6
+x <- r11$avg_log2FC
+y <- -log10(r11$p_val_adj)
+points(x,y,pch = 21,cex = 1.25, lwd = 1.3, col = "white", bg =  "#91D1C2FF")
+
+#text(x[1:10],y[1:10],labels = row.names(r10)[1:10],cex = 0.8,pos=2)
+#N1<-sum(DEG_genes2$avg_log2FC>0)
+#N1
+#N2<-sum(DEG_genes2$avg_log2FC<=0)
+#N2
+#text(c(-1.0,1.0),c(33,33),labels =c("N=1942","N=2789") ,cex = 0.8)
+abline(v=0.25,col="red",lty="longdash")
+abline(v=-0.25,col="red",lty="longdash")
+abline(h=-log(0.05,10),col="red",lty="longdash")
+
+
+
+########---Boxplot and dotplot for DEGs between positive and negative cells
+
+Idents(data_lung_mesen)<-data_lung_mesen$positive_cells
+VlnPlot(object =data_lung_mesen, features="PHC2",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="MACF1",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="JUN",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="DDR2",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="PBX1",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="PXDN",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="KDM5B",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="IL1R1",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="PHC2",log =T,cols = c("#C0C0C0","#dc3023") )
+
+
+VlnPlot(object =data_lung_mesen, features="TNFAIP6",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="FN1",log =T,cols = c("#C0C0C0","#dc3023") )
+VlnPlot(object =data_lung_mesen, features="VEGFA",log =T,cols = c("#C0C0C0","#dc3023") )
+
+
+
+ 
+
+########----lung mesenchymal stem cells-----Marker genes---------------------------------
+#@' Sets of cell surface markers, which must be expressed or absent from MSCs,
+#@' have been recognized by the ISCT as one of the minimal criteria for human MSC (hMSC) identification.
+#@' Expressed markers includes CD73, CD90, and CD105, and unexpressed markers includes CD11b, CD14, CD19, 
+#@' CD34, CD45, CD79a, and HLA-DR.
+
+##must expressed markers
+#CD73---ENSG00000135318 
+FeaturePlot(object = data_lung_mesen, features= "NT5E")
+
+#CD90---ENSG00000154096
+FeaturePlot(object = data_lung_mesen, features= "THY1")
+
+#CD105---ENSG00000106991
+FeaturePlot(object = data_lung_mesen, features= "ENG")
+
+
+##must unexpressed markers
+#CD11b 
+FeaturePlot(object = data_lung_mesen, features= "ITGAM")
+
+#CD14
+FeaturePlot(object = data_lung_mesen, features= "CD14")
+
+#CD19 
+FeaturePlot(object = data_lung_mesen, features= "CD19")
+
+#CD34
+FeaturePlot(object = data_lung_mesen, features= "CD34")
+
+#CD45
+FeaturePlot(object = data_lung_mesen, features= "PTPRC")
+
+#CD79a
+FeaturePlot(object = data_lung_mesen, features= "CD79A")
+
+#HLA-DR
+FeaturePlot(object = data_lung_mesen, features= "HLA-DRB1")
+
+
+#####################################################W##############################
+##must expressed markers for Fibroblast
+FeaturePlot(object = data_lung_mesen, features= "COL1A1")
+FeaturePlot(object = data_lung_mesen, features= "COL1A2")
+FeaturePlot(object = data_lung_mesen, features= "COL5A1")
+FeaturePlot(object = data_lung_mesen, features= "LOXL1")
+FeaturePlot(object = data_lung_mesen, features= "LUM")
+FeaturePlot(object = data_lung_mesen, features= "FBLN1")
+FeaturePlot(object = data_lung_mesen, features= "FBLN2")
+FeaturePlot(object = data_lung_mesen, features= "CD34")
+FeaturePlot(object = data_lung_mesen, features= "PDGFRA")
+
+
+Fibroblast_markers <- c("COL1A1","COL1A2", "COL5A1", "LOXL1", "LUM", "FBLN1", "FBLN2", "CD34", "PDGFRA")
+ 
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+data_lung_mesen <- AddModuleScore(data_lung_mesen,
+                            features = list(Fibroblast_markers),
+                            name="Fibroblast_cell_score")
+W2<-FeaturePlot(data_lung_mesen, reduction = "umap",
+                features = "Fibroblast_cell_score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+W2<-FeaturePlot(data_lung_mesen, reduction = "umap",
+                features = "Fibroblast_cell_score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.05)
+W2
+
+cor.test(data_lung_mesen$Fibroblast_cell_score1,data_lung_mesen$scPagwas.TRS.Score1)
+
+plot(data_lung_mesen$scPagwas.TRS.Score1,data_lung_mesen$Fibroblast_cell_score1,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_lung_mesen$Fibroblast_cell_score1~data_lung_mesen$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+
+
+#计算Fibroblast cell score 在positive and negative cells 之间的差别
+#violin plot
+library(ggplot2)
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal3 <- paletteer_d("ggsci::nrc_npg")[c(7,1)]
+
+TRS <- as.data.frame(data_lung_mesen$Fibroblast_cell_score1)
+Celltype <- as.data.frame(data_lung_mesen$positive_cells)
+combind_cc<- as.data.frame(cbind(Celltype,TRS))
+
+names(combind_cc)<- c("group","value")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal3)
+
+
+d11 <- combind_cc$value[which(combind_cc$group=="positive_cells")]
+d21 <- combind_cc$value[which(combind_cc$group=="negative_cells")]
+wilcox.test(d11,d21)
+t.test(d11,d21)
+
+
+
+
+
