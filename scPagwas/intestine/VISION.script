@@ -1,0 +1,41 @@
+
+
+#--Geary's C method in VISION
+#############--Vision for calculating the significance of heterogeneity among intestinal tuft cells
+###################################################################################
+#VISION
+#----------------------------------------------
+#Cell signature score
+
+require(devtools)
+options(download.file.method = "libcurl")  #good for downloading packages from Github
+#install_github("YosefLab/VISION")
+library(VISION) 
+
+#Pagwas_seu_OPC cells
+n.umi<-colSums(data_intestine_Tuft@assays$RNA@counts)
+scaled_counts <- t(t(as.matrix(data_intestine_Tuft@assays$RNA@counts))/n.umi) * median(n.umi)
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\04-intestine-HIO-06\\drived_data")
+
+#vision
+vis <- Vision(scaled_counts,
+              #signatures = c("C:\\Users\\MYL\\Desktop\\scPagwas_AD\\Geneset_for_vision_score.gmt"))
+              signatures = c("Top_rank_1000_genes.gmt"))
+
+
+#Running vision
+options(mc.cores=2)
+
+vis<-analyze(vis)
+
+#Viewing the results
+viewResults(vis)
+
+
+# Display autocorrelation coefficients, p-values for signatures
+head(getSignatureAutocorrelation(vis))
+
+
+#@@@@@####___________##############################################################
+
