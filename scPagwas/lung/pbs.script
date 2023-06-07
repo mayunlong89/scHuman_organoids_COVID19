@@ -1,0 +1,101 @@
+These codes are .pbs files for running scPagwas on lung organoids scRNA-seq data across three different COVID-19 phenotypes (susceptible, hospitalized, and very severe COVID-19).
+
+## 1) HospitalizedCOVID19_v7
+#-------------------------------------------------------------------------------------
+#PBS -N hlo_hos
+#PBS -l walltime=1000:00:00 
+#PBS -l nodes=node08
+#PBS -l mem=100gb
+#PBS -j oe
+
+source /share/pub/zhouyj/anaconda3/bin/activate SC
+
+
+#to_DATA=包含总数据存放路径，路径下创建好analysis文件夹
+#gwas_path=GWAS数据路径
+#stage=新冠严重程度
+
+
+to_DATA=/share2/pub/zhouyj/zhouyj/organoid/data/lung
+gwas_path=/share2/pub/zhouyj/zhouyj/GWAS/COVID_19/HospitalizedCOVID19_v7/hg38/COVID19_HGI_B2_ALL_leave_23andme_20220403_Pagwas.tsv
+stage=hospital
+
+cd $to_DATA
+
+for i in {1..3}
+do
+memo=HLO-3
+
+Rscript /share2/pub/zhouyj/zhouyj/organoid/data/function/scPagwas.r $memo $gwas_path $stage
+
+done
+#-------------------------------------------------------------------------------------
+
+
+## 2) verysevereCOVID19_v7
+#-------------------------------------------------------------------------------------
+#PBS -N hlo_sev
+#PBS -l walltime=1000:00:00 
+#PBS -l nodes=node08
+#PBS -l mem=150gb
+#PBS -j oe
+
+source /share/pub/zhouyj/anaconda3/bin/activate SC
+
+#to_DATA=包含总数据存放路径，路径下创建好analysis文件夹
+#gwas_path=GWAS数据路径
+#stage=新冠严重程度
+
+to_DATA=/share2/pub/zhouyj/zhouyj/organoid/data/lung
+gwas_path=/share2/pub/zhouyj/zhouyj/GWAS/COVID_19/verysevereCOVID19_v7/COVID19_HGI_A2_ALL_leave_23andme_Pagwas.tsv
+stage=severe
+
+cd $to_DATA
+
+for i in {1..3}
+do
+memo=HLO-3
+
+Rscript /share2/pub/zhouyj/zhouyj/organoid/data/function/scPagwas.r $memo $gwas_path $stage
+
+done
+#-------------------------------------------------------------------------------------
+
+
+## 3) SusceptibleCOVID19_v7
+#-------------------------------------------------------------------------------------
+#PBS -N hlo_sus
+#PBS -l walltime=1000:00:00 
+#PBS -l nodes=node09
+#PBS -l mem=100gb
+#PBS -j oe
+
+source /share/pub/zhouyj/anaconda3/bin/activate SC
+
+#to_DATA=包含总数据存放路径，路径下创建好analysis文件夹
+#gwas_path=GWAS数据路径
+#stage=新冠严重程度
+
+to_DATA=/share2/pub/zhouyj/zhouyj/organoid/data/lung
+gwas_path=/share2/pub/zhouyj/zhouyj/GWAS/COVID_19/SusceptibleCOVID19_v7/hg38/COVID19_HGI_C2_ALL_leave_23andme_20220403_Pagwas.tsv
+stage=susceptible
+
+cd $to_DATA
+
+for i in {1..3}
+do
+memo=HLO-3
+
+Rscript /share2/pub/zhouyj/zhouyj/organoid/data/function/scPagwas.r $memo $gwas_path $stage
+
+done
+#-------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
