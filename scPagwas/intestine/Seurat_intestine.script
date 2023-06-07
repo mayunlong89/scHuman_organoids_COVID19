@@ -1,0 +1,707 @@
+#@' 2022-10-08
+#@' Yunlong Ma
+
+options(repos=structure(c(CRAN="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")))
+options(download.file.method = "libcurl")
+
+library(ggplot2)
+library(Seurat)
+
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\04-intestine-HIO-06")
+
+data_intestine <- readRDS("./drived_data/HIO-6.rds")
+
+
+
+
+
+##基因名---注释
+row.names(data_intestine@assays$RNA@counts) <- data_intestine@assays[["RNA"]]@meta.features[["gene_symbols"]]
+row.names(data_intestine@assays$RNA@data)   <- data_intestine@assays[["RNA"]]@meta.features[["gene_symbols"]]
+
+table(data_intestine$annotation2)
+
+Idents(data_intestine)<-data_intestine$annotation2
+DimPlot(data_intestine, reduction = "umap",label = TRUE)
+
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(9,2,1,7,5)]
+DimPlot(data_intestine, reduction = "umap",label = F,  cols= pal, pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+#@'--------------Marker genes for tuft cells
+
+FeaturePlot(object = data_intestine, features="SPIB")
+FeaturePlot(object = data_intestine, features="TAS1R3")
+FeaturePlot(object = data_intestine, features="TRPM5")
+
+
+
+
+
+##scPagwas_cell TRS/P vaule/gPAS score
+cell_annotation <- read.csv("./drived_data/HIO-6_severe_singlecell_scPagwas_score_pvalue.Result.csv")
+
+data_intestine$scPagwas.TRS.Score1 <- cell_annotation$scPagwas.TRS.Score1
+data_intestine$scPagwas.gPAS.score <- cell_annotation$scPagwas.gPAS.score
+data_intestine$CellScalepValue <- cell_annotation$CellScalepValue
+
+
+library(tidyverse)
+library(RColorBrewer)
+W2<-FeaturePlot(data_intestine, reduction = "umap",
+                features = "scPagwas.TRS.Score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "darkblue",midpoint = 0.2)
+W2
+
+
+
+
+
+
+###-1----All Intestine cells ====> positive cells VS negative cells
+data_intestine$annotation1 <- as.vector(data_intestine$annotation2)
+table(data_intestine$annotation2)
+table(data_intestine$annotation1)
+
+
+#Cell counts
+len <- length(data_intestine$CellScalepValue)
+
+threshold <- 0.05/len
+
+
+#定义阳性细胞的比例
+data_intestine$positive_cells <- c(1:len)
+data_intestine$positive_cells[which(data_intestine$CellScalepValue<threshold | data_intestine$CellScalepValue == threshold )]<- "positive_cells"
+data_intestine$positive_cells[which(data_intestine$CellScalepValue> threshold)]<- "negative_cells"
+table(data_intestine$positive_cells)
+
+table(data_intestine$annotation1)
+mytable<-table(data_intestine$annotation1,data_intestine$positive_cells)
+prop.table(mytable,1)
+
+
+##Positive cells vs negative cells differential gene expression analysis
+Idents(data_intestine) <- data_intestine$positive_cells
+table(Idents(data_intestine))
+Idents(data_intestine)
+
+# 每个聚类细胞数占比
+mytable<-table(data_intestine$annotation2,data_intestine$positive_cells)
+prop.table(mytable,1)
+
+
+length(colnames(data_intestine)[which(data_intestine$positive_cells == 'positive_cells')])
+length(colnames(data_intestine)[which(data_intestine$positive_cells == 'negative_cells')])
+
+Idents(data_intestine)<-data_intestine$positive_cells
+DimPlot(data_intestine, reduction = "umap",label = F,  cols= c("grey","#DC0000FF"), pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+
+
+#计算TRS各细胞类型组之间的差别
+#violin plot
+library(ggplot2)
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(9,2,1,7,5)]
+
+TRS <- as.data.frame(data_intestine$scPagwas.TRS.Score1)
+Celltype <- as.data.frame(data_intestine$annotation2)
+combind_cc<- as.data.frame(cbind(Celltype,TRS))
+
+names(combind_cc)<- c("group","value")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_boxplot()
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+
+
+##density plot for scpagwas score
+library(ggplot2)
+#scPagwas_score density
+
+p<-ggplot(combind_cc, aes(x = value))
+p + geom_density(aes(color = group))
+p + geom_density(aes(fill = group), alpha=0.4)+theme_classic()+scale_fill_manual(values=pal)
+
+
+
+
+
+
+########------------------scDRS------------score for intestine organoids based on scPagwas-identified top-ranked 1000 genes
+
+scDRS <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_intestine_scDRS.score",head = TRUE)
+
+scDRS$FDR <- p.adjust(scDRS$pval,method = "BH",n=length(scDRS$pval))
+
+colnames(data_intestine)
+
+scDRS$CellID
+
+
+library(dplyr)
+subset_2 <- intersect(scDRS$CellID,colnames(data_intestine))
+setdiff(colnames(data_intestine),subset_2)
+
+
+data_intestine$scDRS_norm_score <- scDRS$norm_score[which(scDRS$CellID %in% colnames(data_intestine))]
+head(data_intestine$scDRS_norm_score)
+data_intestine$scDRS_pval <- scDRS$pval[which(scDRS$CellID %in% colnames(data_intestine))]
+data_intestine$scDRS_nlog10_pval <- scDRS$nlog10_pval[which(scDRS$CellID %in% colnames(data_intestine))]
+data_intestine$scDRS_FDR <- scDRS$FDR[which(scDRS$CellID %in% colnames(data_intestine))]
+
+
+
+
+cor.test(data_intestine$scDRS_norm_score,data_intestine$scPagwas.TRS.Score1)
+
+plot(data_intestine$scPagwas.TRS.Score1,data_intestine$scDRS_norm_score,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_intestine$scDRS_norm_score~data_intestine$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+W2<-FeaturePlot(data_intestine, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+W2<-FeaturePlot(data_intestine, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+
+
+#=======-----------------Intestine_tuft cells------------------------------------
+
+
+Idents(data_intestine)<-data_intestine$annotation2
+table(Idents(data_intestine))
+data_intestine_Tuft <- subset(data_intestine,idents = "Tuft")
+
+table(data_intestine_Tuft$positive_cells)
+
+
+
+#####################################################---------------Start-------
+#Re-PCA and UMAP for all severe
+data_intestine_Tuft = FindVariableFeatures(data_intestine_Tuft, do.plot = F, display.progress = FALSE)
+data_intestine_Tuft = ScaleData(data_intestine_Tuft, display.progress = FALSE)
+data_intestine_Tuft <- RunPCA(data_intestine_Tuft, verbose = FALSE)
+ElbowPlot(data_intestine_Tuft, ndims = 20)
+data_intestine_Tuft <- FindNeighbors(object = data_intestine_Tuft, dims = 1:20)
+data_intestine_Tuft <- FindClusters(object = data_intestine_Tuft, resolution = 0.05)
+data_intestine_Tuft <- RunUMAP(object = data_intestine_Tuft, dims = 1:20)
+data_intestine_Tuft <- RunTSNE(object = data_intestine_Tuft, dims = 1:20)
+
+#plot by using UMAP
+Idents(data_intestine_Tuft)<-data_intestine_Tuft$RNA_snn_res.0.05
+DimPlot(data_intestine_Tuft, reduction = "umap")
+DimPlot(data_intestine_Tuft, reduction = "tsne")
+
+table(data_intestine_Tuft$RNA_snn_res.0.05)
+
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+#pal <- paletteer_d("ggsci::nrc_npg")[c(4,9,10,5,6)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(5,7,4)]
+
+Idents(data_intestine_Tuft)<-data_intestine_Tuft$RNA_snn_res.0.05
+DimPlot(data_intestine_Tuft, reduction = "umap",label = T,  cols= pal, pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+###------UMAP for positive cells
+Idents(data_intestine_Tuft)<-data_intestine_Tuft$positive_cells
+DimPlot(data_intestine_Tuft, reduction = "umap",label = F,  cols= c("grey","#DC0000FF"), pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+table(Idents(data_intestine_Tuft))
+mytable<-table(data_intestine_Tuft$RNA_snn_res.0.05,data_intestine_Tuft$positive_cells)
+prop.table(mytable,1)
+
+
+
+library(tidyverse)
+library(RColorBrewer)
+W2<-FeaturePlot(data_intestine_Tuft, reduction = "umap",
+                features = "scPagwas.TRS.Score1", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "darkblue",midpoint = 0.2)
+W2
+
+
+
+
+
+
+########------------------scDRS------------score for intestine tuft based on scPagwas-identified top-ranked 1000 genes
+
+scDRS <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\07-scDRS_analysis\\COVID-19_intestine_scDRS.score",head = TRUE)
+
+scDRS$FDR <- p.adjust(scDRS$pval,method = "BH",n=length(scDRS$pval))
+
+colnames(data_intestine_Tuft)
+
+scDRS$CellID
+
+
+library(dplyr)
+subset_2 <- intersect(scDRS$CellID,colnames(data_intestine_Tuft))
+setdiff(colnames(data_intestine_Tuft),subset_2)
+
+
+data_intestine_Tuft$scDRS_norm_score <- scDRS$norm_score[which(scDRS$CellID %in% colnames(data_intestine_Tuft))]
+head(data_intestine_Tuft$scDRS_norm_score)
+data_intestine_Tuft$scDRS_pval <- scDRS$pval[which(scDRS$CellID %in% colnames(data_intestine_Tuft))]
+data_intestine_Tuft$scDRS_nlog10_pval <- scDRS$nlog10_pval[which(scDRS$CellID %in% colnames(data_intestine_Tuft))]
+data_intestine_Tuft$scDRS_FDR <- scDRS$FDR[which(scDRS$CellID %in% colnames(data_intestine_Tuft))]
+
+
+
+
+cor.test(data_intestine_Tuft$scDRS_norm_score,data_intestine_Tuft$scPagwas.TRS.Score1)
+
+plot(data_intestine_Tuft$scPagwas.TRS.Score1,data_intestine_Tuft$scDRS_norm_score,pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_intestine_Tuft$scDRS_norm_score~data_intestine_Tuft$scPagwas.TRS.Score1)
+abline(z,col="#C37469FF",lwd=2,lty=2)
+
+
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+W2<-FeaturePlot(data_intestine_Tuft, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.00)
+W2
+
+W2<-FeaturePlot(data_intestine_Tuft, reduction = "umap",
+                features = "scDRS_norm_score", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+
+
+#定义阳性细胞的比例 for scDRS
+threshold = 0.05
+data_intestine_Tuft$scDRS_positive_cells <- c(1:length(data_intestine_Tuft$scDRS_norm_score))
+data_intestine_Tuft$scDRS_positive_cells[which(data_intestine_Tuft$scDRS_FDR<threshold | data_intestine_Tuft$scDRS_FDR == threshold )]<- "positive_cells"
+data_intestine_Tuft$scDRS_positive_cells[which(data_intestine_Tuft$scDRS_FDR> threshold)]<- "negative_cells"
+table(data_intestine_Tuft$scDRS_positive_cells)
+
+table(data_intestine_Tuft$annotation1)
+mytable<-table(data_intestine_Tuft$positive_cells,data_intestine_Tuft$scDRS_positive_cells)
+prop.table(mytable,1)
+
+Idents(data_intestine_Tuft)<-data_intestine_Tuft$scDRS_positive_cells
+DimPlot(data_intestine_Tuft, reduction = "umap",label = F,  cols= c("grey","#DC0000FF"), pt.size = 1, repel = T) # #标注有点挤，repel=T可以让排列更加合理 NoLegend
+
+
+
+
+
+
+
+#@'--------------Marker genes for tuft cells
+
+FeaturePlot(object = data_intestine_Tuft, features="KLF6")
+FeaturePlot(object = data_intestine_Tuft, features="RGS2")
+
+
+
+FeaturePlot(object = data_intestine_Tuft, features="SPIB")
+FeaturePlot(object = data_intestine_Tuft, features="TAS1R3")
+FeaturePlot(object = data_intestine_Tuft, features="TRPM5")
+
+
+
+##-----calculate significant genes FOR Cluster 0 vs other two Clusters--------
+
+Idents(data_intestine_Tuft)<-data_intestine_Tuft$RNA_snn_res.0.05
+###雅茹的代码
+markers_df<-FindMarkers(object =data_intestine_Tuft,
+                        ident.1 = 0,
+                        ident.2 = c(1,2), 
+                        min.pct = 0.1,logfc.threshold=0)
+
+print(x = head(markers_df))
+markers_genes =  rownames(head(x = markers_df, n = 6))
+VlnPlot(object =data_intestine_Tuft, features =markers_genes,log =T )
+FeaturePlot(object = data_intestine_Tuft, features=markers_genes )
+
+write.csv(markers_df,"data_intestine_Tuft_severe_COVID-19_sig_cluster_0.csv")
+
+
+
+
+##-----calculate significant genes FOR positive cells vs negative cells--------
+
+Idents(data_intestine_Tuft)<-data_intestine_Tuft$positive_cells
+###雅茹的代码
+markers_df<-FindMarkers(object =data_intestine_Tuft,
+                        ident.1 = colnames(data_intestine_Tuft)[which(data_intestine_Tuft$positive_cells == 'positive_cells')],
+                        ident.2 = colnames(data_intestine_Tuft)[which(data_intestine_Tuft$positive_cells == 'negative_cells')], 
+                        min.pct = 0.1,logfc.threshold=0)
+
+print(x = head(markers_df))
+markers_genes =  rownames(head(x = markers_df, n = 6))
+VlnPlot(object =data_intestine_Tuft, features =markers_genes,log =T )
+FeaturePlot(object = data_intestine_Tuft, features=markers_genes )
+
+write.csv(markers_df,"data_intestine_Tuft_severe_COVID-19_sig.csv")
+
+
+saveRDS(data_intestine_Tuft, file = "F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\04-intestine-HIO-06\\data_intestine_Tuft.rds")
+
+
+
+
+
+
+
+###火山图，volcano plot
+
+DEG_genes2<-markers_df
+plot(DEG_genes2$avg_log2FC,-log10(DEG_genes2$p_val_adj),
+     xlim=c(-5, 5), ylim=c(0,250),
+     xlab="Log2 (fold change)", 
+     ylab="-Log10(FDR)")
+r10 <- DEG_genes2[which(DEG_genes2$avg_log2FC >=0.25  & DEG_genes2$p_val_adj<=0.05),] ##利用which函数对“数据某些行”进行提取，即rs7635815和category<0.6
+x <- r10$avg_log2FC
+y <- -log10(r10$p_val_adj)
+points(x,y,pch = 21,cex = 1.25, lwd = 1.3, col = "white", bg =  "#F39B7FFF")
+
+r11 <- DEG_genes2[which(DEG_genes2$avg_log2FC<=-0.25 & DEG_genes2$p_val_adj<=0.05),] ##利用which函数对“数据某些行”进行提取，即rs7635815和category<0.6
+x <- r11$avg_log2FC
+y <- -log10(r11$p_val_adj)
+points(x,y,pch = 21,cex = 1.25, lwd = 1.3, col = "white", bg =  "#91D1C2FF")
+
+#text(x[1:10],y[1:10],labels = row.names(r10)[1:10],cex = 0.8,pos=2)
+#N1<-sum(DEG_genes2$avg_log2FC>0)
+#N1
+#N2<-sum(DEG_genes2$avg_log2FC<=0)
+#N2
+#text(c(-1.0,1.0),c(33,33),labels =c("N=1942","N=2789") ,cex = 0.8)
+abline(v=0.25,col="red",lty="longdash")
+abline(v=-0.25,col="red",lty="longdash")
+abline(h=-log(0.05,10),col="red",lty="longdash")
+
+
+
+
+
+
+
+#@’ MDS for significant enriched pathways by up-regulated genes in tuft positive cells
+
+
+###all the top KEGG pathways in CAD:
+
+if(!require("proxy"))install.packages("proxy")
+library(proxy)
+if(!require("reshape"))install.packages("reshape")
+library(reshape)
+
+path1=read.delim("./MDS_KEGG/KEGG_pathway_for_MDS.txt",header=FALSE)
+
+path<- path1[,-1]
+
+row.names(path)<-path1[,1]  
+
+path2<-as.matrix(path)
+
+number <- seq(1,length(path[,1]),1)
+
+# 
+for (i in number) {
+  
+  for (j in number){
+    
+    d1<-intersect(path2[i,],path2[j,])
+    d2<-union(path2[i,],path2[j,])
+    JD=length(d1)/length(d2)
+    JD1=1-JD
+    dnb= row.names(path2)[i]
+    dna=row.names(path2)[j]
+    
+    DD <- c(dna,dnb,JD)
+    Y =t(DD)
+    
+    write.table(Y, file="./MDS_KEGG/Jaccard_distance_final_COVID19.txt", 
+                append=TRUE, row.names=FALSE,col.names = FALSE)    
+    
+  }
+  
+}
+
+#@' remove redundant pathway-interactions
+#if(!require("dplyr")) install.packages("dplyr")
+#library(dplyr)
+
+data_PPI <- read.table("./MDS_KEGG/Jaccard_distance_final_COVID19.txt",header = F)
+
+head(data_PPI)
+length(data_PPI$V1)
+colnames(data_PPI)<-c("c1","c2","value")
+
+library(tidyverse)
+df=tibble(
+  c1=data_PPI$c1,
+  c2=data_PPI$c2,
+)
+
+df
+
+data_PPI_sorted <- df %>% mutate(c3=map2(c1,c2,c) > map(sort)) %>%
+   distinct(c3,.keep_all = TRUE) %>% select(-c3)
+
+ 
+data_PPI_sorted<-as.data.frame(data_PPI_sorted)
+
+#将原有的value数据进行匹配：
+data_PPI_sorted<-inner_join(data_PPI_sorted, data_PPI)
+
+write.table(data_PPI_sorted, file="./MDS_KEGG/Jaccard_distance_final_COVID19.csv", 
+             row.names=FALSE,col.names = FALSE)    
+
+
+
+
+
+#----------------438 risk genes for COVID-19 severities
+
+##---------------(2)----------------------------------##
+#Add_Module_score for druggable genes
+library(tidyverse)
+library(RColorBrewer)
+library(Seurat)
+library(SeuratData)
+
+#FeaturePlot
+#features <- c("CSNK2B")
+#FeaturePlot(liverCells, features = features)
+
+##利用438 risk genes for severe COVID-19
+risk_genes <- read.table("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\02-SMultiXcan-analysis\\all_438_genes_for_scDrugHunter.txt",header = TRUE)
+risk_438_genes <- risk_genes$gene
+
+ 
+#RidgePlot(liverCells, features = unique(pbc_risk_genes), ncol = 2)
+#DotPlot(liverCells, features = unique(pbc_risk_genes)) + RotatedAxis()
+#DotPlot(pbmc, features = unique(pbc_risk_genes)) + RotatedAxis()
+
+#?Dotplot()
+#?DiscretePalette()
+
+data_intestine_Tuft <- AddModuleScore(data_intestine_Tuft,
+                                  features = list(risk_438_genes),
+                                  name="risk_438_genes")
+W2<-FeaturePlot(data_intestine_Tuft, reduction = "umap",
+                features = "risk_438_genes1", label = FALSE, repel = TRUE) +
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+W2
+
+
+
+W2<-FeaturePlot(data_intestine_Tuft, reduction = "umap",
+                features = "risk_438_genes1", label = FALSE, repel = TRUE) +
+  scale_colour_gradient2(high = "red",mid = "white",low = "blue",midpoint = 0.05)
+W2
+
+
+
+
+cor(data_intestine_Tuft$risk_438_genes1,data_intestine_Tuft$scPagwas.TRS.Score1)
+cor.test(data_intestine_Tuft$risk_438_genes1,data_intestine_Tuft$scPagwas.TRS.Score1)
+
+plot(data_intestine_Tuft$risk_438_genes1,data_intestine_Tuft$scPagwas.TRS.Score1,
+     pch=21,col="#5E81ACFF",bg="#5E81ACFF")
+
+z<-lm(data_intestine_Tuft$scPagwas.TRS.Score1~data_intestine_Tuft$risk_438_genes1)
+abline(z,col="red",lwd=2,lty=2)
+
+
+
+
+
+
+
+
+#计算TRS各细胞类型组之间的差别
+#violin plot
+library(ggplot2)
+library(paletteer)
+#pal <- paletteer_d("ggsci::nrc_npg")[c(1,3,4,9,5,2,6,8,10)]
+pal <- paletteer_d("ggsci::nrc_npg")[c(5,7,4)]
+
+TRS <- as.data.frame(data_intestine_Tuft$scPagwas.TRS.Score1)
+Celltype <- as.data.frame(data_intestine_Tuft$RNA_snn_res.0.05)
+combind_cc<- as.data.frame(cbind(Celltype,TRS))
+
+names(combind_cc)<- c("group","value")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),y=as.numeric(combind_cc[,2]),fill=group))+geom_boxplot()
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+
+###---438 gene risk scores for cell cluster among endothelial cells
+DGS <- as.data.frame(data_intestine_Tuft$risk_438_genes1)
+Celltype <- as.data.frame(data_intestine_Tuft$RNA_snn_res.0.05)
+group <-as.data.frame(data_intestine_Tuft$positive_cells)
+
+combind_cc<- as.data.frame(cbind(Celltype,DGS,group))
+
+names(combind_cc)<- c("celltype","value","group")
+
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1])))+geom_violin()
+#p+coord_flip()
+#p<-ggplot(combind_cc,aes(x=combind_cc[,2],y=as.numeric(combind_cc[,1]),fill=group))+geom_violin(trim=FALSE)
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,1],-as.numeric(combind_cc[,2])),
+                         y=as.numeric(combind_cc[,2]),
+                         fill=combind_cc[,1]))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=pal)
+
+
+
+####positive cells vs. negative cells for druggable gene scores
+
+p<-ggplot(combind_cc,aes(x=reorder(combind_cc[,3],as.numeric(combind_cc[,2])),
+                         y=as.numeric(combind_cc[,2]),
+                         fill=group))+geom_violin(trim=FALSE)
+p +geom_boxplot(width=0.1,fill="white")+ theme_classic()+scale_fill_manual(values=c("#C0C0C0","#dc3023"))
+
+
+d1 <- combind_cc$value[which(combind_cc$group=="positive_cells")]
+d2 <- combind_cc$value[which(combind_cc$group=="negative_cells")]
+wilcox.test(d1,d2)
+t.test(d1,d2)
+
+mean(d1)
+mean(d2)
+
+
+
+
+
+####################################################################################
+
+###################################################------Density_plot
+###density_plot_for individual genes
+options(repos=structure(c(CRAN="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")))
+options(download.file.method = "libcurl")
+#if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager") 
+#BiocManager::install("Nebulosa")
+#install.packages("ks")
+library("Nebulosa")
+library("Seurat")
+library("BiocFileCache")
+library(paletteer)
+
+
+#PTGS2
+#FeaturePlot(object = data_covid, features="IFNAR2", label = FALSE, repel = TRUE,reduction = "umap")
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_intestine_Tuft, "PTGS2",reduction = "umap") 
+FeaturePlot(object = data_intestine_Tuft, features="PTGS2", cols= pal2, label = FALSE, repel = TRUE,reduction = "umap")
+VlnPlot(object =data_intestine_Tuft, features="PTGS2",log =T,cols = c("#C0C0C0","#dc3023"))
+
+Markers<-c("PTGS2","IL11RA","PDGFRA","CCL2","IFNAR2","VIM","MAPK10","PIK3CA","NFKB2",
+           "CCND2","IFNGR2","TNFRSF10B","EPHA2","PDGFRB",
+           "VEGFA","GSK3B","PIK3R1")
+
+#IL11RA
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_intestine_Tuft, "IL11RA",reduction = "umap") 
+VlnPlot(object =data_intestine_Tuft, features="IL11RA",log =T,cols = c("#C0C0C0","#dc3023") )
+
+
+#PDGFRA
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_intestine_Tuft, "PDGFRA",reduction = "umap") 
+VlnPlot(object =data_intestine_Tuft, features="PDGFRA",log =T,cols = c("#C0C0C0","#dc3023") )
+
+
+
+#CCL2
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_intestine_Tuft, "CCL2",reduction = "umap") 
+VlnPlot(object =data_intestine_Tuft, features="CCL2",log =T ,cols = c("#C0C0C0","#dc3023"))
+
+#IFNAR2
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_intestine_Tuft, "IFNAR2",reduction = "umap") 
+VlnPlot(object =data_intestine_Tuft, features="IFNAR2",log =T )
+
+#VIM
+pal2 <- paletteer_d("ggsci::nrc_npg")[c(3,1)]
+plot_density(object =data_intestine_Tuft, "VIM",reduction = "umap") 
+VlnPlot(object =data_intestine_Tuft, features="VIM",log =T,cols = c("#C0C0C0","#dc3023") )
+
+
+
+#################-------------------------pheatmap--for-markers---------------
+library("pheatmap")
+
+setwd("F:\\02-温医大-科研数据\\0000-scRNA\\000-scHOB-类器官数据库-single cell\\02-Data-analysis\\05-scPagwas_for_scHOB\\02-brain-HCO-12\\severe")
+
+data_specificty <- read.table("top_specificity_genes.txt",header = T)
+
+mat <-data_specificty[,c(-1,-2)]
+row.names(mat)<-data_specificty[,1]
+
+pheatmap(mat, 
+         clustering_method = "ward.D",
+         cluster_cols = T, 
+         cluster_rows = T, 
+         #gaps_col = c(5,7,10,14,19),
+         fontsize=10,
+         main = "specificity",
+         color = c(colorRampPalette(c("SteelBlue","white", "firebrick3"))(50)))
+
+
+
+pheatmap(mat, 
+         clustering_method = "ward.D",
+         cluster_cols = T, 
+         cluster_rows = T, 
+         #gaps_col = c(5,7,10,14,19),
+         fontsize=10,
+         main = "num of FDR0.05 > 1 (N=193)",
+         color = c(colorRampPalette(c("SteelBlue","Gold", "firebrick3"))(50)))
+
+
+
+
