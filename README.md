@@ -12,6 +12,8 @@ Authors: Yunlong Ma1,2,*, Yijun Zhou1,2,*, Dingping Jiang1,*, Wei Dai3*, Cheng C
 *These authors contributed equally to this work.
 #Corresponding author
 
+This project have been done and published in [Cell Proliferation, 2023](https://onlinelibrary.wiley.com/doi/full/10.1111/cpr.13558)
+
 # Keywords: 
 ```
 Human organoids, Single-cell RNA sequencing, GWAS, COVID-19, Drug targets
