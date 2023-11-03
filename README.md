@@ -1,12 +1,16 @@
 # scHuman_organoids_COVID19
 
-This project have been done and published in [Cell Proliferation, 2023](https://onlinelibrary.wiley.com/doi/full/10.1111/cpr.13558).
+This project have been done and published in [Ma et al. Cell Proliferation, 2023](https://onlinelibrary.wiley.com/doi/full/10.1111/cpr.13558).
 
 All the single-cell data on multiple human organoids has been documented in the [scHOB](https://schob.su-lab.org/) database.
 
 This analytic results and visualization are shown in the Website, see [Link](https://schob.su-lab.org/function/).
 
-We applied our recently developed method scPagwas to integrate human organoids scRNA-seq data with GWAS summary data on three COVID-19 phenotypes. (see the method code in [Github link](https://github.com/mayunlong89/scPagwas_main), and the paper in [Cell Genomics, 2023](https://www.cell.com/cell-genomics/fulltext/S2666-979X(23)00180-5)).
+We applied our recently developed method scPagwas to integrate human organoids scRNA-seq data with GWAS summary data on three COVID-19 phenotypes. (see the method code in [Github link](https://github.com/mayunlong89/scPagwas_main), and the paper in [Ma et al. Cell Genomics, 2023](https://www.cell.com/cell-genomics/fulltext/S2666-979X(23)00180-5)).
+
+# Other COVID-19-related projects in our group:
+1) Meta-analysis of large-scale GWAS data to uncover novel loci for COVID-19. see [Ma et al. Human Molecular Genetics, 2021](https://academic.oup.com/hmg/article/30/13/1247/6265026), and see related [Github codes](https://github.com/mayunlong89/Host_genetics_for_COVID-19).
+2) Identification of genetics-influenced immune cell sub-populations relevant to severe COVID-19. see [Ma et al. Genome Medicine, 2022](https://link.springer.com/article/10.1186/s13073-022-01021-1), and see related [Github codes](https://github.com/mayunlong89/COVID19_scRNA).
 
 # Keywords: 
 ```
