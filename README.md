@@ -16,7 +16,7 @@ This project have been done and published in [Cell Proliferation, 2023](https://
 
 All the single-cell data on multiple human organoids has been documented in the [scHOB](https://schob.su-lab.org/) database.
 
-This analytic results and visualization are shown in the Website, see [Link](https://schob.su-lab.org/function/)
+This analytic results and visualization are shown in the Website, see [Link](https://schob.su-lab.org/function/).
 
 # Keywords: 
 ```
