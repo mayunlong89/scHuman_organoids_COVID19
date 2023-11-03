@@ -6,7 +6,7 @@ All the single-cell data on multiple human organoids has been documented in the 
 
 This analytic results and visualization are shown in the Website, see [Link](https://schob.su-lab.org/function/).
 
-We applied our recently developed method scPagwas to integrate human organoids scRNA-seq data with GWAS summary data on three COVID-19 phenotypes. see the method code in [Github link](https://github.com/mayunlong89/scPagwas_main), and the paper in [Cell Genomics, 2023](https://www.cell.com/cell-genomics/fulltext/S2666-979X(23)00180-5).
+We applied our recently developed method scPagwas to integrate human organoids scRNA-seq data with GWAS summary data on three COVID-19 phenotypes. (see the method code in [Github link](https://github.com/mayunlong89/scPagwas_main), and the paper in [Cell Genomics, 2023](https://www.cell.com/cell-genomics/fulltext/S2666-979X(23)00180-5)).
 
 # Keywords: 
 ```
