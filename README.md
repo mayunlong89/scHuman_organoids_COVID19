@@ -1,7 +1,5 @@
 # scHuman_organoids_COVID19
 
-# Title: Integration of human organoids single-cell transcriptomic profiles and human genetics repurposes critical cell type-specific drug targets for severe COVID-19 
-
 This project have been done and published in [Cell Proliferation, 2023](https://onlinelibrary.wiley.com/doi/full/10.1111/cpr.13558).
 
 All the single-cell data on multiple human organoids has been documented in the [scHOB](https://schob.su-lab.org/) database.
