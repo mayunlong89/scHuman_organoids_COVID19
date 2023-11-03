@@ -1,16 +1,6 @@
 # scHuman_organoids_COVID19
 
 # Title: Integration of human organoids single-cell transcriptomic profiles and human genetics repurposes critical cell type-specific drug targets for severe COVID-19 
-Authors: Yunlong Ma1,2,*, Yijun Zhou1,2,*, Dingping Jiang1,*, Wei Dai3*, Cheng Chen1 , Jingjing Li1, Chunyu Deng4, Gongwei Zheng1, Yaru Zhang1,2, Fei Qiu1, Haojun Sun1, Yinghao Yao2, Haijun Han5, Jia Qu1, Nan Wu6, Jianzhong Su1,2,#
-
-1 School of Biomedical Engineering, School of Ophthalmology & Optometry and Eye Hospital, Wenzhou Medical University, Wenzhou, 325027, China.
-2 Oujiang Laboratory, Zhejiang Lab for Regenerative Medicine, Vision and Brain Health, Wenzhou 325101, Zhejiang, China.
-3 Wenzhou Institute, University of Chinese Academy of Sciences, Wenzhou, 325011, China.
-4 School of Life Science and Technology, Harbin Institute of Technology, Harbin, 150080, China.
-5 School of Medicine, Hangzhou City University, Hangzhou 310015, China.
-6 Beijing Key Laboratory for Genetic Research of Skeletal Deformity, Key laboratory of big data for spinal deformities, Department of Orthopedic Surgery, Peking Union Medical College Hospital, Peking Union Medical College and Chinese Academy of Medical Sciences, Beijing 100730, China.
-*These authors contributed equally to this work.
-#Corresponding author
 
 This project have been done and published in [Cell Proliferation, 2023](https://onlinelibrary.wiley.com/doi/full/10.1111/cpr.13558).
 
