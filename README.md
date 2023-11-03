@@ -20,6 +20,12 @@ To facilitate the data integration and minimize the batch effects, we have built
 
 ![Figure 1](https://github.com/mayunlong89/scHuman_organoids_COVID19/blob/main/figures/Figure%201.png)
 
+
+
+# Citation
+Ma et al. Integration of human organoids single-cell transcriptomic profiles and human genetics repurposes critical cell type-specific drug targets for severe COVID-19, [Cell Proliferation, 2023,e13558](https://onlinelibrary.wiley.com/doi/full/10.1111/cpr.13558).
+
+
 # Scripts
 In this study, we have built a unified pipeline and devised a computational framework, which contains a series of bioinformatic tools to fulfil the integrative genomic analyses. For example:
 ```
@@ -188,7 +194,3 @@ Bootstrap_estimate_Plot(Pagwas=Pagwas,
 dev.off()
 
  ```
-
-# Citation
-Ma et al. Integration of human organoids single-cell transcriptomic profiles and human genetics repurposes critical cell type-specific drug targets for severe COVID-19, [Cell Proliferation, 2023,e13558](https://onlinelibrary.wiley.com/doi/full/10.1111/cpr.13558).
-
