@@ -37,7 +37,7 @@ Ma et al. Integration of human organoids single-cell transcriptomic profiles and
 
 # Scripts
 In this study, we have built a unified pipeline and devised a computational framework, which contains a series of bioinformatic tools to fulfil the integrative genomic analyses. For example:
-```
+```r
 # 1.Leveraging scPagwas to integrating GWAS summary statistics on three COVID-19 outcomes and scRNA-seq data on human lung, intestinal, and brain organoids.
 library(scPagwas)
 library(readr)
